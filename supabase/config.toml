@@ -1,0 +1,4 @@
+project_id = "the-trainers"
+
+[functions.invite-user]
+verify_jwt = true
