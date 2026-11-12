@@ -1,4 +1,4 @@
-# The Trainers — تدرّب
+# The Trainers — تدريب
 
 تطبيق ويب تقدّمي (PWA) مستقل ومصمم للهاتف Android وiPhone لإدارة المؤسسات والمدربين. هذا المشروع منفصل كلياً عن Sport Performance.
 
