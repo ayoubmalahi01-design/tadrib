@@ -8,3 +8,21 @@
 .row-action{color:#74857a;padding:7px}.row-action:hover{background:#eef4eb;color:#315b3d}
 .attendance-reason{max-width:150px!important;padding:8px 9px!important;font-size:11px}
 .institution-logo{max-width:130px;max-height:100px;object-fit:contain;border-radius:12px;border:1px solid #e5ece6;padding:8px}
+
+/* Functional workflow additions: bulk roster import and conversation inbox */
+.heading-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.bulk-preview{margin-top:12px;padding:12px;border:1px solid var(--line,#e5e7eb);border-radius:12px;max-height:180px;overflow:auto;font-size:13px}
+.bulk-preview>div{padding:5px 0;border-top:1px solid var(--line,#e5e7eb)}
+.attendance-summary{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;padding:10px 12px;border-radius:12px;background:var(--surface-soft,#f5f7fa);font-size:13px}
+.chat-workspace{display:grid;grid-template-columns:minmax(190px,260px) minmax(0,1fr);gap:0;padding:0;overflow:hidden;min-height:520px}
+.conversation-list{border-inline-end:1px solid var(--line,#e5e7eb);padding:10px;overflow:auto;max-height:680px}
+.conversation-item{width:100%;display:flex;align-items:center;gap:10px;text-align:start;border:0;background:transparent;border-radius:12px;padding:10px;cursor:pointer;color:inherit}
+.conversation-item:hover,.conversation-item.selected{background:var(--surface-soft,#f1f5f9)}
+.conversation-item .grow{min-width:0;display:flex;flex-direction:column;gap:3px}
+.conversation-item b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conversation-item small,.chat-title small{color:var(--muted,#64748b);font-size:11px}
+.chat-panel-inner{display:flex;flex-direction:column;min-width:0;min-height:520px}
+.chat-title{padding:13px 16px;border-bottom:1px solid var(--line,#e5e7eb);display:flex;flex-direction:column;gap:3px}
+.chat-panel-inner .chat-messages{flex:1;min-height:350px;max-height:560px;overflow:auto;padding:14px}
+.empty-chat{display:grid;place-items:center;min-height:200px;color:var(--muted,#64748b);padding:20px;text-align:center}
+@media(max-width:680px){.chat-workspace{grid-template-columns:1fr;min-height:0}.conversation-list{display:flex;gap:6px;overflow-x:auto;max-height:none;border-inline-end:0;border-bottom:1px solid var(--line,#e5e7eb)}.conversation-item{min-width:170px;width:auto}.chat-panel-inner{min-height:430px}.heading-actions .action-btn{font-size:12px;padding:9px 10px}}
