@@ -65,7 +65,7 @@ create table if not exists public.daily_reports (
  late_count int not null default 0 check(late_count>=0), injured_count int not null default 0 check(injured_count>=0),
  excused_count int not null default 0 check(excused_count>=0), notes text,
  status text not null default 'draft' check(status in ('draft','submitted','reviewed')),
- is_finalized boolean not null default false, finalized_at timestamptz,
+ is_finalized boolean not null default false, finalized_at timestamptz, reviewed_by uuid references public.profiles(id), reviewed_at timestamptz,
  created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
 create index if not exists reports_coach_date on public.daily_reports(coach_id,report_date desc);
@@ -174,6 +174,28 @@ create or replace function public.is_conversation_member(cid uuid) returns boole
 language sql stable security definer set search_path=public,pg_temp
 as $$ select exists(select 1 from public.conversation_members cm where cm.conversation_id=cid and cm.profile_id=auth.uid()) $$;
 
+-- Any active institution member can start a direct or group chat; membership is created atomically.
+create or replace function public.create_conversation(p_title text default null,p_member_ids uuid[] default '{}')
+returns uuid language plpgsql security definer set search_path=public,pg_temp
+as $$
+declare v_institution uuid; v_id uuid; v_type text; v_count integer;
+begin
+ if auth.uid() is null then raise exception 'Authentication required'; end if;
+ select institution_id into v_institution from public.profiles where id=auth.uid() and account_status='active';
+ if v_institution is null then raise exception 'Active institution membership required'; end if;
+ select count(distinct x) into v_count from unnest(coalesce(p_member_ids,'{}'::uuid[])) x where x<>auth.uid();
+ if v_count<1 then raise exception 'Select at least one other member'; end if;
+ if v_count>100 then raise exception 'A conversation can have at most 100 other members'; end if;
+ if exists(select 1 from unnest(coalesce(p_member_ids,'{}'::uuid[])) x left join public.profiles p on p.id=x and p.institution_id=v_institution and p.account_status='active' where x<>auth.uid() and p.id is null) then
+  raise exception 'Every participant must be an active member of your institution';
+ end if;
+ v_type:=case when v_count=1 and nullif(trim(coalesce(p_title,'')),'') is null then 'direct' else 'group' end;
+ insert into public.conversations(institution_id,title,conversation_type,created_by) values(v_institution,nullif(trim(coalesce(p_title,'')),''),v_type,auth.uid()) returning id into v_id;
+ insert into public.conversation_members(conversation_id,profile_id) values(v_id,auth.uid()) on conflict do nothing;
+ insert into public.conversation_members(conversation_id,profile_id) select v_id,x from unnest(coalesce(p_member_ids,'{}'::uuid[])) x on conflict do nothing;
+ return v_id;
+end $$;
+
 -- Owner bootstrap: only the specified email receives the platform-owner role.
 create or replace function public.handle_new_auth_user() returns trigger
 language plpgsql security definer set search_path=public,pg_temp
@@ -251,12 +273,36 @@ do $$ declare t text; begin foreach t in array array['institutions','students','
  execute format('create trigger %I after insert or update or delete on public.%I for each row execute function public.write_audit_log()',t||'_audit',t);
 end loop; end $$;
 
--- Finalized reports are immutable, including attempts to unset the finalized flag.
+-- Coaches cannot edit finalized reports; institution administrators may only mark them reviewed.
 create or replace function public.lock_final_report() returns trigger language plpgsql set search_path=public,pg_temp
-as $$ begin if old.is_finalized then raise exception 'Finalized reports are immutable'; end if;
- if new.is_finalized and new.finalized_at is null then new.finalized_at=now(); end if; return new; end $$;
+as $$ begin
+ if old.is_finalized then
+  if public.current_app_role() in ('manager','admin')
+     and new.id is not distinct from old.id
+     and new.institution_id is not distinct from old.institution_id
+     and new.coach_id is not distinct from old.coach_id
+     and new.shift_id is not distinct from old.shift_id
+     and new.coach_name_snapshot is not distinct from old.coach_name_snapshot
+     and new.report_date is not distinct from old.report_date
+     and new.shift_start is not distinct from old.shift_start
+     and new.shift_end is not distinct from old.shift_end
+     and new.present_count is not distinct from old.present_count
+     and new.absent_count is not distinct from old.absent_count
+     and new.late_count is not distinct from old.late_count
+     and new.injured_count is not distinct from old.injured_count
+     and new.excused_count is not distinct from old.excused_count
+     and new.notes is not distinct from old.notes
+     and new.is_finalized is true and new.finalized_at is not distinct from old.finalized_at
+     and new.status='reviewed' and new.reviewed_by=auth.uid() and new.reviewed_at is not null then
+    return new;
+  end if;
+  raise exception 'Finalized reports are immutable';
+ end if;
+ if new.is_finalized and new.finalized_at is null then new.finalized_at=now(); end if;
+ return new;
+end $$;
 drop trigger if exists daily_report_lock on public.daily_reports;
-create trigger daily_report_lock before update or delete on public.daily_reports for each row execute function public.lock_final_report();
+create trigger daily_report_lock before update on public.daily_reports for each row execute function public.lock_final_report();
 
 -- Enable RLS on every tenant/private table.
 do $$ declare t text; begin foreach t in array array['institutions','profiles','classes','students','student_medical_records','coach_shifts','daily_reports','attendance_records','student_notes','coach_notebooks','admin_notices','conversations','conversation_members','messages','notifications','audit_logs'] loop
@@ -288,6 +334,7 @@ create policy shifts_update_own_admin on public.coach_shifts for update to authe
 create policy reports_read_own_admin on public.daily_reports for select to authenticated using(institution_id=public.current_institution_id() and (coach_id=auth.uid() or public.is_institution_admin()));
 create policy reports_insert_own on public.daily_reports for insert to authenticated with check(institution_id=public.current_institution_id() and coach_id=auth.uid() and public.current_app_role()='coach');
 create policy reports_update_own_draft on public.daily_reports for update to authenticated using(institution_id=public.current_institution_id() and coach_id=auth.uid() and not is_finalized) with check(institution_id=public.current_institution_id() and coach_id=auth.uid());
+create policy reports_admin_review on public.daily_reports for update to authenticated using(institution_id=public.current_institution_id() and public.current_app_role() in ('manager','admin') and is_finalized) with check(institution_id=public.current_institution_id() and public.current_app_role() in ('manager','admin') and is_finalized);
 create policy attendance_read_own_admin on public.attendance_records for select to authenticated using(institution_id=public.current_institution_id() and (coach_id=auth.uid() or public.is_institution_admin()));
 create policy attendance_insert_member on public.attendance_records for insert to authenticated with check(institution_id=public.current_institution_id() and coach_id=auth.uid());
 create policy attendance_update_own_admin on public.attendance_records for update to authenticated using(institution_id=public.current_institution_id() and (coach_id=auth.uid() or public.is_institution_admin())) with check(institution_id=public.current_institution_id() and (coach_id=auth.uid() or public.is_institution_admin()));
@@ -301,8 +348,8 @@ create policy conversations_read_member on public.conversations for select to au
 create policy conversations_admin_create on public.conversations for insert to authenticated with check(institution_id=public.current_institution_id() and created_by=auth.uid());
 create policy conversation_members_read on public.conversation_members for select to authenticated using(public.is_conversation_member(conversation_id) or public.is_institution_admin());
 create policy conversation_members_admin_add on public.conversation_members for insert to authenticated with check(exists(select 1 from public.conversations c where c.id=conversation_id and c.institution_id=public.current_institution_id()) and exists(select 1 from public.profiles p where p.id=profile_id and p.institution_id=public.current_institution_id()) and (profile_id=auth.uid() or public.is_institution_admin()));
-create policy messages_read_member on public.messages for select to authenticated using(institution_id=public.current_institution_id() and (conversation_id is null or public.is_conversation_member(conversation_id)));
-create policy messages_insert_member on public.messages for insert to authenticated with check(institution_id=public.current_institution_id() and sender_id=auth.uid() and (conversation_id is null or public.is_conversation_member(conversation_id)));
+create policy messages_read_member on public.messages for select to authenticated using(institution_id=public.current_institution_id() and conversation_id is not null and public.is_conversation_member(conversation_id));
+create policy messages_insert_member on public.messages for insert to authenticated with check(institution_id=public.current_institution_id() and sender_id=auth.uid() and conversation_id is not null and public.is_conversation_member(conversation_id));
 create policy notifications_read_own on public.notifications for select to authenticated using(recipient_id=auth.uid());
 create policy notifications_update_own on public.notifications for update to authenticated using(recipient_id=auth.uid()) with check(recipient_id=auth.uid());
 create or replace function public.guard_notification_update() returns trigger language plpgsql set search_path=public,pg_temp
@@ -317,9 +364,9 @@ insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) v
  ('trainer-avatars','trainer-avatars',false,5242880,array['image/jpeg','image/png','image/webp']),
  ('trainer-medical','trainer-medical',false,26214400,array['image/jpeg','image/png','image/webp','application/pdf'])
 on conflict(id) do nothing;
-create policy trainer_media_read on storage.objects for select to authenticated using(bucket_id in ('trainer-media','trainer-avatars') and (storage.foldername(name))[1]=public.current_institution_id()::text);
-create policy trainer_media_upload on storage.objects for insert to authenticated with check(bucket_id='trainer-media' and (storage.foldername(name))[1]=public.current_institution_id()::text and (storage.foldername(name))[2]=auth.uid()::text);
-create policy trainer_media_delete_own on storage.objects for delete to authenticated using(bucket_id='trainer-media' and (storage.foldername(name))[1]=public.current_institution_id()::text and (storage.foldername(name))[2]=auth.uid()::text);
+create policy trainer_media_read on storage.objects for select to authenticated using((bucket_id='trainer-avatars' and (storage.foldername(name))[1]=public.current_institution_id()::text) or (bucket_id='trainer-media' and (storage.foldername(name))[1]=public.current_institution_id()::text and exists(select 1 from public.messages m where m.media_path=name and m.conversation_id is not null and public.is_conversation_member(m.conversation_id))));
+create policy trainer_media_upload on storage.objects for insert to authenticated with check(bucket_id='trainer-media' and (storage.foldername(name))[1]=public.current_institution_id()::text and (storage.foldername(name))[3]=auth.uid()::text and exists(select 1 from public.conversations c where c.id::text=(storage.foldername(name))[2] and c.institution_id=public.current_institution_id() and public.is_conversation_member(c.id)));
+create policy trainer_media_delete_own on storage.objects for delete to authenticated using(bucket_id='trainer-media' and (storage.foldername(name))[1]=public.current_institution_id()::text and (storage.foldername(name))[3]=auth.uid()::text and exists(select 1 from public.messages m where m.media_path=name and m.sender_id=auth.uid()));
 create policy trainer_avatar_upload on storage.objects for insert to authenticated with check(bucket_id='trainer-avatars' and (storage.foldername(name))[1]=public.current_institution_id()::text and (storage.foldername(name))[2]=auth.uid()::text);
 create policy trainer_avatar_update on storage.objects for update to authenticated using(bucket_id='trainer-avatars' and (storage.foldername(name))[1]=public.current_institution_id()::text and (storage.foldername(name))[2]=auth.uid()::text) with check(bucket_id='trainer-avatars' and (storage.foldername(name))[1]=public.current_institution_id()::text and (storage.foldername(name))[2]=auth.uid()::text);
 create policy trainer_medical_admin_read on storage.objects for select to authenticated using(bucket_id='trainer-medical' and (storage.foldername(name))[1]=public.current_institution_id()::text and public.is_institution_admin());
@@ -337,7 +384,8 @@ end $$;
 grant usage on schema public to authenticated;
 grant select,insert,update,delete on all tables in schema public to authenticated;
 grant usage,select on all sequences in schema public to authenticated;
-grant execute on function public.current_institution_id(),public.current_app_role(),public.is_platform_owner(),public.is_institution_admin(),public.is_active_member(),public.is_conversation_member(uuid) to authenticated;
+revoke all on function public.create_conversation(text,uuid[]) from public,anon;
+grant execute on function public.current_institution_id(),public.current_app_role(),public.is_platform_owner(),public.is_institution_admin(),public.is_active_member(),public.is_conversation_member(uuid),public.create_conversation(text,uuid[]) to authenticated;
 commit;
 
 -- FIRST DEPLOYMENT / OWNER:
