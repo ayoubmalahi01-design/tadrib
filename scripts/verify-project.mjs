@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-const root=process.cwd(); const required=['src/App.tsx','src/styles.css','src/lib/supabase.ts','src/lib/i18n.ts','supabase/THE_TRAINERS_SETUP.sql','supabase/functions/invite-user/index.ts','supabase/config.toml','public/manifest.webmanifest','public/sw.js','README.md','cloudflare/DEPLOYMENT.md','public/_redirects','.gitignore','wrangler.toml','.env.example']
+const root=process.cwd(); const required=['src/App.tsx','src/styles.css','src/lib/supabase.ts','src/lib/i18n.ts','supabase/THE_TRAINERS_SETUP.sql','supabase/functions/invite-user/index.ts','supabase/config.toml','public/manifest.webmanifest','public/sw.js','README.md','cloudflare/DEPLOYMENT.md','.gitignore','wrangler.toml','.env.example']
 const missing=required.filter(f=>!fs.existsSync(path.join(root,f)))
 if(missing.length){console.error('Missing required files:',missing.join(', '));process.exit(1)}
 const sql=fs.readFileSync(path.join(root,'supabase/THE_TRAINERS_SETUP.sql'),'utf8')
