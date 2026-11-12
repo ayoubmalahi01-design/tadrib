@@ -380,6 +380,152 @@ do $$ begin
  end if;
 end $$;
 
+
+-- =====================================================================
+-- ADDITIONS v2 (statut rejected, notes enrichies, lecture des messages,
+-- gestion des membres de groupe, repère de suivi après 5 absences).
+-- =====================================================================
+
+-- 1) Account status: add 'rejected'.
+alter table public.profiles drop constraint if exists profiles_account_status_check;
+alter table public.profiles add constraint profiles_account_status_check check(account_status in ('pending','active','rejected','suspended'));
+
+-- 2) Institution setting: should permission/exemption absences count toward the 5-absence streak? (default: no)
+alter table public.institutions add column if not exists count_permissions_as_absence boolean not null default false;
+
+-- 3) Student notes: richer categories, follow-up status, shared visibility (health/permission notes stay author+admin only).
+alter table public.student_notes drop constraint if exists student_notes_note_type_check;
+alter table public.student_notes add constraint student_notes_note_type_check check(note_type in ('general','behavior','discipline','progress','educational','administrative','individual_follow_up','difficulty','health_permission','other'));
+alter table public.student_notes add column if not exists follow_up_status text not null default 'none';
+alter table public.student_notes drop constraint if exists student_notes_follow_up_status_check;
+alter table public.student_notes add constraint student_notes_follow_up_status_check check(follow_up_status in ('none','open','done'));
+alter table public.student_notes add column if not exists last_follow_up_at timestamptz;
+drop policy if exists student_notes_read_author_admin on public.student_notes;
+create policy student_notes_read_shared on public.student_notes for select to authenticated using(institution_id=public.current_institution_id() and (author_id=auth.uid() or public.is_institution_admin() or note_type<>'health_permission'));
+
+-- 4) Message read receipts and unread counters.
+create table if not exists public.message_reads (
+ message_id uuid not null references public.messages(id) on delete cascade,
+ reader_id uuid not null references public.profiles(id) on delete cascade,
+ read_at timestamptz not null default now(),
+ primary key(message_id,reader_id)
+);
+create index if not exists message_reads_reader_idx on public.message_reads(reader_id);
+alter table public.message_reads enable row level security;
+create policy message_reads_select on public.message_reads for select to authenticated using(reader_id=auth.uid() or exists(select 1 from public.messages m where m.id=message_id and m.sender_id=auth.uid()));
+
+create or replace function public.mark_conversation_read(p_conversation_id uuid) returns integer
+language plpgsql security definer set search_path=public,pg_temp
+as $$
+declare v_n integer;
+begin
+ if auth.uid() is null or not public.is_conversation_member(p_conversation_id) then raise exception 'Not a member of this conversation'; end if;
+ insert into public.message_reads(message_id,reader_id)
+  select m.id,auth.uid() from public.messages m where m.conversation_id=p_conversation_id and m.sender_id<>auth.uid()
+  on conflict do nothing;
+ get diagnostics v_n=row_count;
+ return v_n;
+end $$;
+
+create or replace function public.unread_counts() returns table(conversation_id uuid, unread bigint)
+language sql stable security definer set search_path=public,pg_temp
+as $$
+ select m.conversation_id, count(*)::bigint
+ from public.messages m
+ join public.conversation_members cm on cm.conversation_id=m.conversation_id and cm.profile_id=auth.uid()
+ where m.sender_id<>auth.uid()
+   and not exists(select 1 from public.message_reads r where r.message_id=m.id and r.reader_id=auth.uid())
+ group by m.conversation_id
+$$;
+
+-- 5) Group membership management: creator of a group can add members; members can leave; creator/admin can remove.
+create policy conversation_members_creator_add on public.conversation_members for insert to authenticated with check(
+ exists(select 1 from public.conversations c where c.id=conversation_id and c.created_by=auth.uid() and c.conversation_type='group' and c.institution_id=public.current_institution_id())
+ and exists(select 1 from public.profiles p where p.id=profile_id and p.institution_id=public.current_institution_id() and p.account_status='active'));
+create policy conversation_members_remove on public.conversation_members for delete to authenticated using(
+ profile_id=auth.uid()
+ or exists(select 1 from public.conversations c where c.id=conversation_id and c.institution_id=public.current_institution_id()
+           and ((c.created_by=auth.uid() and c.conversation_type='group') or public.is_institution_admin())));
+
+-- 6) Follow-up flag after 5 or more consecutive absences.
+-- "Consecutive" = consecutive actual sessions of the institution (distinct session dates that have attendance records), not calendar days.
+-- After the student returns (present/late), the flag stays visible for the next 2 actual sessions (the return session counts as the first).
+create table if not exists public.absence_followups (
+ id uuid primary key default gen_random_uuid(),
+ institution_id uuid not null references public.institutions(id) on delete cascade,
+ student_id uuid not null references public.students(id) on delete cascade,
+ streak_start date not null, streak_end date not null,
+ absences integer not null check(absences>=5),
+ status text not null default 'awaiting_return' check(status in ('awaiting_return','active','completed')),
+ return_date date, sessions_seen integer not null default 0 check(sessions_seen between 0 and 2), last_counted_date date,
+ handled_at timestamptz, handled_by uuid references public.profiles(id),
+ created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
+ unique(student_id,streak_start)
+);
+create index if not exists absence_followups_inst_status on public.absence_followups(institution_id,status);
+alter table public.absence_followups enable row level security;
+create policy absence_followups_read on public.absence_followups for select to authenticated using(institution_id=public.current_institution_id());
+
+create or replace function public.track_absence_followup() returns trigger
+language plpgsql security definer set search_path=public,pg_temp
+as $$
+declare
+ v_count integer:=0; v_start date; v_perm boolean; r record; v_fu public.absence_followups%rowtype; v_name text;
+begin
+ select count_permissions_as_absence into v_perm from public.institutions where id=new.institution_id;
+ v_perm:=coalesce(v_perm,false);
+ if new.status='absent' or (v_perm and new.status in ('excused','medical_exemption','permission')) then
+  for r in
+   select d.session_date as sd, a.status as st
+   from (select distinct session_date from public.attendance_records where institution_id=new.institution_id and session_date<=new.session_date) d
+   left join public.attendance_records a on a.student_id=new.student_id and a.session_date=d.session_date
+   order by d.session_date desc
+  loop
+   exit when r.st is null or not (r.st='absent' or (v_perm and r.st in ('excused','medical_exemption','permission')));
+   v_count:=v_count+1; v_start:=r.sd;
+  end loop;
+  if v_count>=5 then
+   insert into public.absence_followups(institution_id,student_id,streak_start,streak_end,absences)
+   values(new.institution_id,new.student_id,v_start,new.session_date,v_count)
+   on conflict(student_id,streak_start) do update
+     set streak_end=greatest(public.absence_followups.streak_end,excluded.streak_end),
+         absences=greatest(public.absence_followups.absences,excluded.absences),
+         updated_at=now()
+     where public.absence_followups.status='awaiting_return';
+  end if;
+ elsif new.status in ('present','late') then
+  select * into v_fu from public.absence_followups where student_id=new.student_id and status in ('awaiting_return','active') order by created_at desc limit 1;
+  if found and new.session_date>v_fu.streak_end then
+   if v_fu.status='awaiting_return' then
+    update public.absence_followups set status='active',return_date=new.session_date,sessions_seen=1,last_counted_date=new.session_date,updated_at=now() where id=v_fu.id;
+    select full_name into v_name from public.students where id=new.student_id;
+    insert into public.notifications(institution_id,recipient_id,title,body,notification_type)
+    values(new.institution_id,new.coach_id,'عودة تلميذ بعد غياب متتالٍ','عاد التلميذ '||coalesce(v_name,'')||' بعد خمس غيابات متتالية أو أكثر. يرجى متابعته خلال الحصتين القادمتين.','absence_followup');
+   elsif v_fu.last_counted_date is null or new.session_date>v_fu.last_counted_date then
+    update public.absence_followups
+      set sessions_seen=v_fu.sessions_seen+1,last_counted_date=new.session_date,
+          status=case when v_fu.sessions_seen+1>=2 then 'completed' else 'active' end,updated_at=now()
+      where id=v_fu.id;
+   end if;
+  end if;
+ end if;
+ return new;
+end $$;
+drop trigger if exists attendance_followup_trg on public.attendance_records;
+create trigger attendance_followup_trg after insert or update of status on public.attendance_records for each row execute function public.track_absence_followup();
+
+create or replace function public.mark_followup_handled(p_id uuid) returns void
+language plpgsql security definer set search_path=public,pg_temp
+as $$
+begin
+ if not public.is_active_member() then raise exception 'Active membership required'; end if;
+ update public.absence_followups set handled_at=now(),handled_by=auth.uid(),updated_at=now() where id=p_id and institution_id=public.current_institution_id();
+ if not found then raise exception 'Follow-up not found'; end if;
+end $$;
+
+revoke all on function public.mark_conversation_read(uuid),public.unread_counts(),public.track_absence_followup(),public.mark_followup_handled(uuid) from public,anon;
+grant execute on function public.mark_conversation_read(uuid),public.unread_counts(),public.mark_followup_handled(uuid) to authenticated;
+
 -- Minimal grants; RLS remains the authorization boundary.
 grant usage on schema public to authenticated;
 grant select,insert,update,delete on all tables in schema public to authenticated;

@@ -16,8 +16,9 @@ serve(async(req)=>{
   if(actorError||!actor||actor.account_status!=='active')throw new Error('Active profile required')
   const body=await req.json(); const email=String(body.email||'').trim().toLowerCase(); const full_name=String(body.full_name||'').trim(); const role=String(body.role||'coach'); const institution_id=body.institution_id||actor.institution_id
   if(!email||!full_name)throw new Error('Email and full name are required')
-  const isOwner=actor.role==='owner'; const isManager=actor.role==='manager'; const isAdmin=actor.role==='admin'
-  if(!isOwner&&!isManager&&!isAdmin)throw new Error('Insufficient role')
+  const isOwner=actor.role==='owner'; const isManager=actor.role==='manager'; const isAdmin=actor.role==='admin'; const isCoach=actor.role==='coach'
+  if(!isOwner&&!isManager&&!isAdmin&&!isCoach)throw new Error('Insufficient role')
+  if(isCoach&&role!=='coach')throw new Error('Coaches may invite coaches only')
   if(isOwner){if(!['manager','admin','coach'].includes(role)||!institution_id)throw new Error('Owner must select an institution and valid role')}
   else {if(institution_id!==actor.institution_id||!['coach','admin'].includes(role)||(role==='admin'&&!isManager))throw new Error('You cannot invite this role or institution')}
   const {data:invited,error:inviteError}=await admin.auth.admin.inviteUserByEmail(email,{data:{full_name}})
