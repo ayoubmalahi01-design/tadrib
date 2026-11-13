@@ -1,7 +1,7 @@
 // Guards the trilingual dictionary: no missing keys, no empty labels, correct RTL.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { dict, LANGS, isRtl, makeT } from '../src/lib/i18n.ts'
+import { dict, LANGS, isRtl, makeT, setDateLocale, formatDateTime, formatTime } from '../src/lib/i18n.ts'
 
 test('the three required languages are registered', () => {
   assert.deepEqual([...LANGS].sort(), ['ar', 'en', 'fr'])
@@ -48,4 +48,29 @@ test('translation actually resolves instead of echoing the key', () => {
 
 test('an unknown key degrades to the key itself rather than crashing', () => {
   assert.equal(makeT('ar')('definitely-not-a-key'), 'definitely-not-a-key')
+})
+
+// F19: dates must follow the active interface language, not the machine default.
+test('date formatting follows the selected language', () => {
+  setDateLocale('en')
+  assert.match(formatDateTime('2026-11-13T10:30:00Z'), /2026/)
+  setDateLocale('fr')
+  assert.match(formatDateTime('2026-11-13T10:30:00Z'), /\d{2}\/\d{2}\/2026/)
+  setDateLocale('ar')
+  const arabic = formatDateTime('2026-11-13T10:30:00Z')
+  assert.ok(arabic.length > 0)
+  assert.ok(!arabic.includes('Invalid'))
+})
+
+test('time formatting renders hours and minutes for the selected language', () => {
+  setDateLocale('en')
+  assert.match(formatTime('2026-11-13T10:30:00Z'), /\d{2}:\d{2}/)
+})
+
+test('invalid or empty dates render nothing instead of Invalid Date', () => {
+  assert.equal(formatDateTime(null), '')
+  assert.equal(formatDateTime(undefined), '')
+  assert.equal(formatDateTime(''), '')
+  assert.equal(formatDateTime('not-a-date'), '')
+  assert.equal(formatTime('not-a-date'), '')
 })
