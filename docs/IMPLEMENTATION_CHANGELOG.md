@@ -1,5 +1,14 @@
 # THE TRAINERS (تدرّب) — Implementation Changelog
 
+## Round 5 — one-tap bulk attendance (D6)
+
+- `src/App.tsx` (Attendance): added `markAllPresent()` and `clearAll()` plus a toolbar with two buttons. A coach can now fill an entire group as present in one tap, or reset the sheet, instead of setting every student individually; both buttons are disabled when no students are loaded, and clearing also drops the per-student reason text so no stale note is saved with a new status.
+- `src/lib/i18n.ts`: `markAllPresent` and `clearAll` added in ar/fr/en.
+- `src/styles.css`: `.attendance-bulk` wraps to two full-width touch targets (min 40px) on narrow phones.
+- Verified: `npm test` 24/24, `npm run build` OK, `npm run verify` 28 checks.
+- Not verified: the buttons were not exercised in a browser against a live Supabase session, so the save path is covered by the existing attendance-core unit tests rather than an end-to-end click.
+
+
 ## Round 4 — account gate messaging (audit: wrong message for rejected users)
 
 - Added `src/lib/account-gate.ts`: a pure `accountGate(profile, loadError)` returning `active | pending | rejected | suspended | missing | error`, plus `gateTitleKey`, `gateBodyKey` and `gateAllowsRetry`.
