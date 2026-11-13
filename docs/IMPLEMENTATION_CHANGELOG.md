@@ -201,3 +201,21 @@ Priority order, by risk:
    sessions do not silently merge under `'unspecified'`.
 4. Plan the `react-router` v7 upgrade with a navigation regression pass.
 5. Continue the remaining audit items against AUDIT_REPORT.md.
+
+---
+
+## Round 13 — functional gaps closed
+
+- Removed the bulk/pasted student importer at the owner's request.
+- Added the coach private notebook with search, date range, edit, delete and
+  per-coach draft recovery (`src/lib/notebook-utils.ts`).
+- Announcements: per-user read tracking plus administrator read counts, with a
+  graceful fallback when the tracking table is absent; migration 0003 added
+  (not executed).
+- Messaging: conversation and message search, and a retry bar that keeps the text
+  and attachment after a failed send (`src/lib/chat-utils.ts`).
+- Reports: coach-name search, status filter and from/to date filter.
+- Notifications: open the related screen by notification type, and mark all as read.
+- Seven new translation keys in Arabic, French and English.
+- Verified with `npm test` (67/67) and `npm run build` (pass). Details in
+  `docs/ROUND13_REPORT.md`.

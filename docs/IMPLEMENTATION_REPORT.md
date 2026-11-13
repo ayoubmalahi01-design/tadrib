@@ -254,3 +254,16 @@ the repository's declared specification.
 
 No deployment was performed and none is authorised. All work is committed to
 branch `appjet` only.
+
+## Round 13 addendum
+
+Implemented: coach private notebook (search, date range, edit, delete, per-coach
+local draft), announcement read tracking with migration 0003 (additive, not
+executed), messaging search and failed-send retry, report filters (coach name,
+status, date range), notification deep links and mark-all-as-read, seven new
+translation keys, and removal of the bulk student importer at the owner's request.
+
+Verified: `npm test` 67/67 pass and `npm run build` pass (TypeScript + Vite, 1634
+modules). Not verified: authenticated end-to-end flows, RLS isolation, storage
+uploads, Realtime delivery, PWA installation and device testing — no credentials or
+hardware are available here. Full detail: `docs/ROUND13_REPORT.md`.
