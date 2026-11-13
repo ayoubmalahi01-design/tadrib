@@ -1,5 +1,17 @@
 # THE TRAINERS (تدرّب) — Implementation Changelog
 
+## Round 7 — messaging: unread badges, read receipts, history paging (F9/D14/D16/D17)
+
+- `src/App.tsx` (Messages): added `loadUnread()` using the existing `unread_counts()` RPC and `openConversation()`, which selects a conversation and calls `mark_conversation_read(p_conversation_id)`. Unread totals now appear as a badge (capped at `99+`) on each conversation row, refresh on load, on conversation open and on every realtime insert.
+- Message history: `loadMessages` previously ordered ascending with `limit(200)`, which returned the **oldest** 200 messages and would hide new ones in a long conversation. It now orders descending with `limit(50)` and reverses for display. A `loadOlder()` action pages backwards with `.lt('created_at', oldest)` and prepends, so history is complete instead of silently truncated.
+- Fixed an untranslated literal in Notifications: the acknowledge button said `Read` in every language; it now uses `t('markRead')`.
+- `src/lib/i18n.ts`: `loadOlder` added in ar/fr/en; `markRead` already existed and was reused.
+- `src/styles.css`: `.unread-badge` and `.load-older`.
+- Build caught a real defect in my own first attempt — an unmatched parenthesis in the realtime cleanup (`return((()=>…`) — which `tsc` rejected; corrected before this round was accepted.
+- Verified: `npm test` 24/24, `npm run build` OK, `npm run verify` 28 checks.
+- Not verified: badges and read receipts were not exercised against a live database, so RLS behaviour of `message_reads` and the RPC grants is confirmed by reading the schema only.
+
+
 ## Round 6 — password recovery (F7/S2) and modal accessibility (F14)
 
 - `src/App.tsx` (Login): added `resetPassword()` calling `supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })`, guarded by the existing `isConfigured` check so an unconfigured build explains itself instead of throwing. A secondary "forgot password" button sits under the sign-in button, is disabled while either request is in flight, and a success panel confirms the link was sent. Empty email produces a specific instruction rather than a silent no-op.
