@@ -64,6 +64,13 @@ import {
 import { accountGate, gateTitleKey, gateBodyKey } from "./lib/account-gate";
 import { notify, setToastListener } from "./lib/toast";
 import {
+  filterNotebook,
+  notebookSummary,
+  belongsToCoach,
+  notebookDraftKey,
+  isNotebookDraftUsable,
+} from "./lib/notebook-utils";
+import {
   PageHeader,
   Panel,
   StatCard,
@@ -1739,11 +1746,16 @@ function Notebook({ profile, t }: { profile: Profile; t: T }) {
       {loading ? (
         <LoadingState label={t("loading")} />
       ) : error ? (
-        <ErrorState message={error} retry={t("retry")} onRetry={load} />
+        <ErrorState
+          title={t("loadError")}
+          message={error}
+          retryLabel={t("retry")}
+          onRetry={load}
+        />
       ) : visible.length === 0 ? (
         <EmptyState
           title={items.length ? t("noResults") : t("notebookEmpty")}
-          hint={items.length ? t("clearFilters") : t("notebookEmptyHint")}
+          body={items.length ? t("clearFilters") : t("notebookEmptyHint")}
         />
       ) : (
         visible.map((n) => (
@@ -1865,9 +1877,14 @@ function Notices({ profile, t }: { profile: Profile; t: T }) {
       {loading ? (
         <LoadingState label={t("loading")} />
       ) : error ? (
-        <ErrorState message={error} retry={t("retry")} onRetry={load} />
+        <ErrorState
+          title={t("loadError")}
+          message={error}
+          retryLabel={t("retry")}
+          onRetry={load}
+        />
       ) : items.length === 0 ? (
-        <EmptyState title={t("noticesEmpty")} hint={t("noticesEmptyHint")} />
+        <EmptyState title={t("noticesEmpty")} body={t("noticesEmptyHint")} />
       ) : (
         items.map((n) => (
           <article className="panel notice" key={n.id}>
