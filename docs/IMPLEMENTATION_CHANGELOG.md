@@ -1,5 +1,16 @@
 # THE TRAINERS (تدرّب) — Implementation Changelog
 
+## Round 6 — password recovery (F7/S2) and modal accessibility (F14)
+
+- `src/App.tsx` (Login): added `resetPassword()` calling `supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })`, guarded by the existing `isConfigured` check so an unconfigured build explains itself instead of throwing. A secondary "forgot password" button sits under the sign-in button, is disabled while either request is in flight, and a success panel confirms the link was sent. Empty email produces a specific instruction rather than a silent no-op.
+- `src/App.tsx` (Modal): the dialog now exposes `role="dialog"`, `aria-modal="true"` and `aria-label={title}`, takes focus on open, closes on `Escape`, and closes on backdrop click without closing when the click lands inside the panel.
+- `src/lib/i18n.ts`: `forgotPassword`, `resetEmailFirst`, `resetSent`, `sendingReset` added in ar/fr/en.
+- `src/styles.css`: `.notice-box` success panel and `.modal:focus` outline reset.
+- Verified: `npm test` 24/24, `npm run build` OK, `npm run verify` 28 checks.
+- Owner action required for the flow to actually deliver mail: add the deployed origin to the Supabase Auth redirect allow-list. Without it Supabase rejects the `redirectTo`. Not verifiable in this environment (no project credentials).
+- Known gap: the modal close button's accessible name is the literal `Close` because `Modal` receives no translator; the dialog itself is labelled with its translated title.
+
+
 ## Round 5 — one-tap bulk attendance (D6)
 
 - `src/App.tsx` (Attendance): added `markAllPresent()` and `clearAll()` plus a toolbar with two buttons. A coach can now fill an entire group as present in one tap, or reset the sheet, instead of setting every student individually; both buttons are disabled when no students are loaded, and clearing also drops the per-student reason text so no stale note is saved with a new status.

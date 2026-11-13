@@ -160,3 +160,13 @@ Not covered by these checks: live Supabase auth/RLS behaviour, device rendering,
 | Project verification | `npm run verify` | PASS — 28 assertions |
 
 The gate tests are pure-logic tests: they prove the mapping from profile state to message, not that a real rejected user sees it, because no Supabase session exists in this environment.
+
+## Round 6 addendum — password reset and modal accessibility
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Unit tests | `npm test` | PASS — 24/24 |
+| Typecheck + build | `npm run build` | PASS |
+| Project verification | `npm run verify` | PASS — 28 assertions |
+
+Password reset is implemented against the Supabase Auth API but was **not** executed end to end: no project credentials or redirect allow-list exist in this environment. The success and error paths are therefore unproven at runtime.
