@@ -28,6 +28,8 @@ import {
   Mic,
   Square,
   Pencil,
+  Lock,
+  Trash2,
   Archive,
   Settings as SettingsIcon,
 } from "lucide-react";
@@ -1767,36 +1769,82 @@ function Notebook({ profile, t }: { profile: Profile; t: T }) {
 }
 function Notices({ profile, t }: { profile: Profile; t: T }) {
   const [items, setItems] = useState<any[]>([]),
+    [reads, setReads] = useState<Record<string, number>>({}),
+    [mine, setMine] = useState<string[]>([]),
+    [tracking, setTracking] = useState(true),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(""),
     [show, setShow] = useState(false),
     [title, setTitle] = useState(""),
-    [body, setBody] = useState("");
+    [body, setBody] = useState(""),
+    [busy, setBusy] = useState(false);
   const admin = profile.role !== "coach";
   async function load() {
-    const { data, error } = await supabase
+    setLoading(true);
+    setError("");
+    const { data, error: err } = await supabase
       .from("admin_notices")
       .select("*")
       .order("created_at", { ascending: false });
-    if (error) notify(error.message);
+    if (err) setError(err.message);
     setItems(data || []);
+    setLoading(false);
+    const { data: rows, error: rErr } = await supabase
+      .from("admin_notice_reads")
+      .select("notice_id,profile_id");
+    if (rErr) {
+      setTracking(false);
+      return;
+    }
+    setTracking(true);
+    const counts: Record<string, number> = {};
+    const own: string[] = [];
+    (rows || []).forEach((r: any) => {
+      counts[r.notice_id] = (counts[r.notice_id] || 0) + 1;
+      if (r.profile_id === profile.id) own.push(r.notice_id);
+    });
+    setReads(counts);
+    setMine(own);
   }
   useEffect(() => {
     load();
-  }, []);
+  }, [profile.id]);
   async function save(e: FormEvent) {
     e.preventDefault();
-    const { error } = await supabase.from("admin_notices").insert({
-      title,
-      body,
+    if (busy) return;
+    setBusy(true);
+    const { error: err } = await supabase.from("admin_notices").insert({
+      title: title.trim(),
+      body: body.trim(),
       author_id: profile.id,
       institution_id: profile.institution_id,
     });
-    if (error) notify(error.message);
-    else {
-      setShow(false);
-      setTitle("");
-      setBody("");
-      load();
+    setBusy(false);
+    if (err) {
+      notify(err.message);
+      return;
     }
+    notify(t("saved"));
+    setShow(false);
+    setTitle("");
+    setBody("");
+    load();
+  }
+  async function markRead(id: string) {
+    if (!tracking || mine.includes(id)) return;
+    const { error: err } = await supabase
+      .from("admin_notice_reads")
+      .insert({
+        notice_id: id,
+        profile_id: profile.id,
+        institution_id: profile.institution_id,
+      });
+    if (err) {
+      if (!/duplicate|unique/i.test(err.message)) notify(err.message);
+      return;
+    }
+    setMine((prev) => [...prev, id]);
+    setReads((prev) => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
   }
   return (
     <>
@@ -1814,22 +1862,43 @@ function Notices({ profile, t }: { profile: Profile; t: T }) {
           )
         }
       />
-      {items.length === 0 ? (
-        <Empty t={t} />
+      {loading ? (
+        <LoadingState label={t("loading")} />
+      ) : error ? (
+        <ErrorState message={error} retry={t("retry")} onRetry={load} />
+      ) : items.length === 0 ? (
+        <EmptyState title={t("noticesEmpty")} hint={t("noticesEmptyHint")} />
       ) : (
         items.map((n) => (
           <article className="panel notice" key={n.id}>
             <div className="notice-head">
               <Bell size={18} />
               <small>{formatDateTime(n.created_at)}</small>
+              {!admin && mine.includes(n.id) && (
+                <span className="badge ok">{t("seenByYou")}</span>
+              )}
             </div>
             <h3>{n.title}</h3>
-            <p>{n.body}</p>
+            <p className="note-body">{n.body}</p>
+            {!admin && tracking && !mine.includes(n.id) && (
+              <button className="secondary" onClick={() => markRead(n.id)}>
+                <Check size={16} /> {t("markRead")}
+              </button>
+            )}
+            {admin && tracking && (
+              <small className="muted">
+                {t("readBy")}: {reads[n.id] || 0}
+              </small>
+            )}
           </article>
         ))
       )}
       {show && (
-        <Modal title={t("newNotice")} close={() => setShow(false)}>
+        <Modal
+          title={t("newNotice")}
+          close={() => setShow(false)}
+          closeLabel={t("close")}
+        >
           <form onSubmit={save}>
             <label>
               {t("title")}
@@ -1848,7 +1917,18 @@ function Notices({ profile, t }: { profile: Profile; t: T }) {
                 onChange={(e) => setBody(e.target.value)}
               />
             </label>
-            <button className="primary">{t("save")}</button>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setShow(false)}
+              >
+                {t("cancel")}
+              </button>
+              <button className="primary" disabled={busy}>
+                {t("save")}
+              </button>
+            </div>
           </form>
         </Modal>
       )}
