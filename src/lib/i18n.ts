@@ -728,3 +728,29 @@ export function makeT(lang: Lang) {
   const fallback = dict.en as Record<string, string>
   return (key: string): string => table[key] ?? fallback[key] ?? key
 }
+
+/**
+ * Locale used by every date/time label. Kept in sync with the active UI
+ * language so an Arabic interface never shows a US-formatted date (F19).
+ */
+let dateLocale = 'ar'
+
+export function setDateLocale(lang: Lang) {
+  dateLocale = lang === 'ar' ? 'ar' : lang === 'fr' ? 'fr-FR' : 'en-GB'
+}
+
+function parse(value: string | number | Date | null | undefined): Date | null {
+  if (value === null || value === undefined || value === '') return null
+  const d = new Date(value)
+  return isNaN(d.getTime()) ? null : d
+}
+
+export function formatDateTime(value: string | number | Date | null | undefined): string {
+  const d = parse(value)
+  return d ? d.toLocaleString(dateLocale) : ''
+}
+
+export function formatTime(value: string | number | Date | null | undefined): string {
+  const d = parse(value)
+  return d ? d.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' }) : ''
+}
