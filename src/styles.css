@@ -29,3 +29,6 @@
 
 .attendance-bulk{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
 .attendance-bulk button{flex:1 1 auto;min-height:40px}
+
+.notice-box{background:#e8f5e9;color:#1b5e20;border:1px solid #a5d6a7;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:.9rem}
+.modal:focus{outline:none}
