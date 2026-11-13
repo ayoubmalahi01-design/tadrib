@@ -1,5 +1,14 @@
 # THE TRAINERS (تدرّب) — Implementation Changelog
 
+## Round 3 — untranslated strings (F6) and CSP (F10/S1)
+
+- `src/App.tsx`: every remaining hard-coded Arabic UI string was replaced with a `t('key')` lookup — attendance status chips and reason field, the Excel import dialog, all messaging dialogs (invite coach, new conversation, participants), conversation type badges, empty states and button labels (47 literals). Excel header aliases on lines 19 and 22 stay literal on purpose: they match pasted spreadsheet data, not interface text. The language `<option value="ar">العربية</option>` keeps its endonym, which is standard practice.
+- `src/lib/i18n.ts`: 40 new keys added to all three dictionaries; ar/fr/en parity is preserved and covered by `tests/i18n.test.ts`.
+- `public/_headers`: added `Content-Security-Policy` restricting scripts to self, connections to Supabase REST/Realtime, images and media to Supabase storage plus blob (voice notes), styles to self plus Google Fonts, with `object-src 'none'` and `frame-ancestors 'none'`.
+- Verified this round: `npm test` 15/15, `npm run build` OK, `npm run verify` 28 checks.
+- Not verified: the CSP only takes effect behind a host that honours `_headers` (Cloudflare Pages / Netlify). `vite preview` ignores it, so no local browser assertion proves it does not break the live app; it should be re-checked on the first authorized deployment.
+
+
 Branch: `appjet` · All work isolated to this branch. `main` was not touched.
 
 ---

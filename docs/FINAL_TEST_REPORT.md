@@ -140,3 +140,13 @@ npm run verify    # 14 files, 28 assertions
 
 All three pass on branch `appjet` at the revision described in
 IMPLEMENTATION_CHANGELOG.md.
+
+## Round 3 addendum — i18n completion and CSP
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Unit tests | `npm test` | PASS — 15/15 (attendance core, i18n parity, RTL direction, unknown-key fallback) |
+| Typecheck + build | `npm run build` (`tsc --noEmit && vite build`) | PASS |
+| Project verification | `npm run verify` | PASS — 14 required files, 28 assertions |
+
+Not covered by these checks: live Supabase auth/RLS behaviour, device rendering, and the new Content-Security-Policy (honoured only by the production host, not by `vite preview`).
