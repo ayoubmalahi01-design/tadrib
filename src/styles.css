@@ -1203,4 +1203,10 @@ td {
 .retry-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;margin:0 12px 8px;border-radius:12px;background:#fef2f2;color:#991b1b;font-size:.85rem}
 .retry-bar .secondary{padding:6px 12px;white-space:nowrap}
 [dir="rtl"] .chat-search,[dir="rtl"] .retry-bar{direction:rtl}
+
+/* Reports/notices filter bar + row actions */
+.filter-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.filter-bar input,.filter-bar select{flex:1 1 150px;min-width:0;padding:9px 11px;border:1px solid var(--border,#e3e7eb);border-radius:10px;background:var(--surface,#fff);font:inherit;color:inherit}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:600px){.filter-bar input,.filter-bar select{flex:1 1 100%}.row-actions{justify-content:flex-start}}
 @media(max-width:600px){.chat-search{margin:0 0 8px}.retry-bar{margin:0 0 8px}}
