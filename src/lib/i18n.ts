@@ -778,3 +778,93 @@ export function formatTime(value: string | number | Date | null | undefined): st
   const d = parse(value)
   return d ? d.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' }) : ''
 }
+
+/**
+ * Interface strings added by the UI rebuild. Kept in a separate block and merged
+ * into the main dictionaries so the three languages can never drift apart:
+ * every key below exists in ar, fr and en.
+ */
+const uiExtras = {
+  ar: {
+    profile: 'ملفي الشخصي',
+    myAccount: 'الحساب والتفضيلات',
+    name: 'الاسم الكامل',
+    emailAddress: 'البريد الإلكتروني',
+    institutionLabel: 'المؤسسة',
+    noInstitution: 'بدون مؤسسة (حساب منصة)',
+    languageLabel: 'لغة الواجهة',
+    profileUpdated: 'تم تحديث بيانات الحساب',
+    profileMissing: 'لا يوجد ملف شخصي مرتبط بهذا الحساب',
+    profileMissingBody: 'تم تسجيل الدخول بنجاح، لكن لم يتم العثور على صف في جدول profiles لهذا المستخدم. راجع صلاحيات القراءة أو أنشئ الملف الشخصي ثم أعد المحاولة.',
+    sessions: 'سجل الحصص',
+    sessionHistory: 'سجل الحصص والجلسات المسجلة',
+    openSession: 'جلسة مفتوحة',
+    closedSession: 'جلسة مغلقة',
+    startedAt: 'البداية',
+    endedAt: 'النهاية',
+    duration: 'المدة',
+    minutes: 'دقيقة',
+    noSessions: 'لا توجد حصص مسجلة بعد',
+    noSessionsBody: 'ستظهر هنا كل جلسة تفتحها أو تغلقها من لوحة التحكم.',
+    totalSessions: 'إجمالي الحصص',
+    openNow: 'مفتوحة الآن',
+    attendanceCount: 'الحضور المسجل',
+    refresh: 'تحديث',
+  },
+  fr: {
+    profile: 'Mon profil',
+    myAccount: 'Compte et préférences',
+    name: 'Nom complet',
+    emailAddress: 'Adresse e-mail',
+    institutionLabel: 'Établissement',
+    noInstitution: 'Aucun établissement (compte plateforme)',
+    languageLabel: 'Langue de l’interface',
+    profileUpdated: 'Compte mis à jour',
+    profileMissing: 'Aucun profil lié à ce compte',
+    profileMissingBody: 'La connexion a réussi, mais aucune ligne profiles n’a été trouvée. Vérifiez les règles de lecture ou créez le profil, puis réessayez.',
+    sessions: 'Historique des séances',
+    sessionHistory: 'Séances et sessions enregistrées',
+    openSession: 'Séance ouverte',
+    closedSession: 'Séance fermée',
+    startedAt: 'Début',
+    endedAt: 'Fin',
+    duration: 'Durée',
+    minutes: 'min',
+    noSessions: 'Aucune séance enregistrée',
+    noSessionsBody: 'Chaque séance ouverte ou fermée depuis le tableau de bord apparaîtra ici.',
+    totalSessions: 'Total des séances',
+    openNow: 'Ouvertes',
+    attendanceCount: 'Présences saisies',
+    refresh: 'Actualiser',
+  },
+  en: {
+    profile: 'My profile',
+    myAccount: 'Account & preferences',
+    name: 'Full name',
+    emailAddress: 'Email address',
+    institutionLabel: 'Institution',
+    noInstitution: 'No institution (platform account)',
+    languageLabel: 'Interface language',
+    profileUpdated: 'Account updated',
+    profileMissing: 'No profile linked to this account',
+    profileMissingBody: 'Sign-in succeeded but no profiles row was found for this user. Check the read policies or create the profile, then try again.',
+    sessions: 'Session history',
+    sessionHistory: 'Recorded sessions and shifts',
+    openSession: 'Open session',
+    closedSession: 'Closed session',
+    startedAt: 'Start',
+    endedAt: 'End',
+    duration: 'Duration',
+    minutes: 'min',
+    noSessions: 'No sessions recorded yet',
+    noSessionsBody: 'Every shift you open or close from the dashboard will be listed here.',
+    totalSessions: 'Total sessions',
+    openNow: 'Open now',
+    attendanceCount: 'Attendance saved',
+    refresh: 'Refresh',
+  },
+} as const
+
+Object.assign(dict.ar as unknown as Record<string, string>, uiExtras.ar)
+Object.assign(dict.fr as unknown as Record<string, string>, uiExtras.fr)
+Object.assign(dict.en as unknown as Record<string, string>, uiExtras.en)
