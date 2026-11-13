@@ -64,6 +64,10 @@ import {
 import { accountGate, gateTitleKey, gateBodyKey } from "./lib/account-gate";
 import { notify, setToastListener } from "./lib/toast";
 import {
+  filterConversations,
+  filterMessages,
+} from "./lib/chat-utils";
+import {
   filterNotebook,
   notebookSummary,
   belongsToCoach,
