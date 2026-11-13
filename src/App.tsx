@@ -62,6 +62,15 @@ import {
 } from "./lib/push-notify";
 import { accountGate, gateTitleKey, gateBodyKey } from "./lib/account-gate";
 import { notify, setToastListener } from "./lib/toast";
+import {
+  PageHeader,
+  Panel,
+  StatCard,
+  Badge,
+  EmptyState,
+  LoadingState,
+  ErrorState,
+} from "./components/ui";
 
 type Role = "owner" | "manager" | "admin" | "coach";
 type Profile = {
@@ -273,7 +282,36 @@ export default function App() {
         </section>
       </div>
     );
-  if (!profile) return null;
+  // Never render an empty document here: a signed-in account without a readable
+  // profiles row used to fall through to `return null`, which produced the
+  // reported blank white screen with no way out.
+  if (!profile)
+    return (
+      <div className="boot-screen">
+        <section className="boot-card">
+          <div className="brand-mark big">T</div>
+          <h1>{t("app")}</h1>
+          <h2>{t("profileMissing")}</h2>
+          <p>{profileError || t("profileMissingBody")}</p>
+          <div className="boot-actions">
+            <button
+              className="primary"
+              disabled={busy}
+              onClick={() => {
+                if (!session) return;
+                setBusy(true);
+                loadProfile(session.user.id).finally(() => setBusy(false));
+              }}
+            >
+              {busy ? "..." : t("retry")}
+            </button>
+            <button className="secondary" onClick={signOut}>
+              {t("logout")}
+            </button>
+          </div>
+        </section>
+      </div>
+    );
   const owner = profile.role === "owner",
     admin = ["owner", "manager", "admin"].includes(profile.role);
   const navItems = owner
@@ -281,6 +319,7 @@ export default function App() {
         ["/", Home, "home"],
         ["/owner", Building2, "ownerConsole"],
         ["/audit", History, "audit"],
+        ["/profile", ShieldCheck, "profile"],
       ]
     : [
         ["/", Home, "home"],
@@ -291,6 +330,8 @@ export default function App() {
         ["/notices", Bell, "notices"],
         ["/notifications", Bell, "notifications"],
         ["/messages", MessageCircle, "messages"],
+        ["/sessions", Activity, "sessions"],
+        ["/profile", ShieldCheck, "profile"],
         ...(admin
           ? [
               ["/team", UserPlus, "team"],
@@ -464,6 +505,23 @@ export default function App() {
             <Route
               path="/audit"
               element={owner || admin ? <Audit t={t} /> : <Denied t={t} />}
+            />
+            <Route
+              path="/sessions"
+              element={
+                !owner ? <Sessions profile={profile} t={t} /> : <Denied t={t} />
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProfilePage
+                  profile={profile}
+                  t={t}
+                  lang={lang}
+                  setLang={setLang}
+                />
+              }
             />
             <Route path="*" element={<Dashboard profile={profile} t={t} />} />
           </Routes>
