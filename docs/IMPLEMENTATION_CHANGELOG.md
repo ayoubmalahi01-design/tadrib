@@ -1,5 +1,14 @@
 # THE TRAINERS (تدرّب) — Implementation Changelog
 
+## Round 4 — account gate messaging (audit: wrong message for rejected users)
+
+- Added `src/lib/account-gate.ts`: a pure `accountGate(profile, loadError)` returning `active | pending | rejected | suspended | missing | error`, plus `gateTitleKey`, `gateBodyKey` and `gateAllowsRetry`.
+- `src/App.tsx`: the pre-app gate no longer collapses three different situations into "pending approval". A failed profile read (`profiles` query error, e.g. an RLS denial) now shows a retry screen with the real error; an account with no profile row is told it is not linked to an institution yet; rejected and suspended keep their own wording. `loadProfile` now clears the stored error on success and never leaves a stale profile on failure.
+- `src/lib/i18n.ts`: added `profileLoadFailedTitle`, `profileLoadFailedMsg`, `profileMissingTitle`, `profileMissingMsg` in ar/fr/en (`retry` already existed).
+- Added `tests/account-gate.test.ts` (9 tests): status casing/whitespace, unknown status treated as pending and never active, load error vs missing profile, "rejected is never shown the pending message", retry only for errors, and every gate key present in all three dictionaries.
+- Verified: `npm test` 24/24, `npm run build` OK, `npm run verify` 28 checks.
+
+
 ## Round 3 — untranslated strings (F6) and CSP (F10/S1)
 
 - `src/App.tsx`: every remaining hard-coded Arabic UI string was replaced with a `t('key')` lookup — attendance status chips and reason field, the Excel import dialog, all messaging dialogs (invite coach, new conversation, participants), conversation type badges, empty states and button labels (47 literals). Excel header aliases on lines 19 and 22 stay literal on purpose: they match pasted spreadsheet data, not interface text. The language `<option value="ar">العربية</option>` keeps its endonym, which is standard practice.

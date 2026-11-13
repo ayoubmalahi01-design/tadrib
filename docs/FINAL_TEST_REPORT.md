@@ -150,3 +150,13 @@ IMPLEMENTATION_CHANGELOG.md.
 | Project verification | `npm run verify` | PASS — 14 required files, 28 assertions |
 
 Not covered by these checks: live Supabase auth/RLS behaviour, device rendering, and the new Content-Security-Policy (honoured only by the production host, not by `vite preview`).
+
+## Round 4 addendum — account gate messaging
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Unit tests | `npm test` | PASS — 24/24 (9 new gate tests) |
+| Typecheck + build | `npm run build` | PASS |
+| Project verification | `npm run verify` | PASS — 28 assertions |
+
+The gate tests are pure-logic tests: they prove the mapping from profile state to message, not that a real rejected user sees it, because no Supabase session exists in this environment.
