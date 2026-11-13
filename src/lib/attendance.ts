@@ -1,4 +1,4 @@
-// Attendance persistence, isolated from the UI so it can be unit-tested.
+// Attendance persistence (Supabase-backed). Pure rules live in attendance-core.ts.
 //
 // F2 background: attendance_records was unique on (student_id, session_date)
 // with no session dimension, so a student attending two sessions in one day
@@ -10,47 +10,17 @@
 // If the column is missing it falls back to the previous behaviour and reports
 // `migrationRequired`, so attendance never breaks for an un-migrated project.
 import { supabase } from './supabase'
+import {
+  NO_SESSION,
+  buildAttendanceRows,
+  friendlyAttendanceError,
+  isMissingSessionColumn,
+  type AttendanceInput,
+  type AttendanceRecord,
+} from './attendance-core'
 
-/** Session identity used when no coach_shift is open. */
-export const NO_SESSION = 'unspecified'
-
-export type AttendanceStatus =
-  | 'present' | 'absent' | 'late' | 'excused' | 'permission' | 'medical_exemption'
-
-export type AttendanceInput = {
-  // Nullable: the platform owner has no institution, and RLS (not the client)
-  // is what actually decides whether a write is allowed.
-  institution_id: string | null
-  student_id: string
-  coach_id: string
-  session_date: string
-  status: string
-  reason?: string | null
-}
-
-export type AttendanceRecord = { student_id: string; status: string; reason?: string | null }
-
-type PgError = { code?: string; message?: string; details?: string } | null
-
-/** True when the error means `session_key` does not exist yet (migration 0001 not run). */
-export function isMissingSessionColumn(error: PgError): boolean {
-  if (!error) return false
-  if (error.code === '42703') return true
-  const text = `${error.message ?? ''} ${error.details ?? ''}`
-  return /session_key/i.test(text) && /does not exist|schema cache/i.test(text)
-}
-
-/** Turn a Postgres error into a message a coach can act on. */
-export function friendlyAttendanceError(error: PgError): string {
-  if (!error) return ''
-  if (error.code === '23505') {
-    return 'This student already has an attendance record for this session. Reload the page and try again.'
-  }
-  if (error.code === '42501') {
-    return 'You are not allowed to record attendance for this student or session.'
-  }
-  return error.message ?? 'Could not save attendance.'
-}
+export { NO_SESSION, buildAttendanceRows, friendlyAttendanceError, isMissingSessionColumn }
+export type { AttendanceInput, AttendanceRecord, AttendanceStatus, PgError } from './attendance-core'
 
 /** The coach's open shift, used as the session identity. */
 export async function resolveSessionKey(coachId: string): Promise<string> {
@@ -79,7 +49,7 @@ export async function loadAttendance(
   const base = () =>
     supabase.from('attendance_records').select('student_id,status,reason').eq('session_date', date)
 
-  let res = await base().eq('session_key', sessionKey)
+  const res = await base().eq('session_key', sessionKey)
   if (res.error && isMissingSessionColumn(res.error)) {
     const legacy = await base()
     return {
@@ -129,33 +99,4 @@ export async function saveAttendance(
     sessionKey,
     migrationRequired: false,
   }
-}
-
-/**
- * Pure: build the rows to persist from the UI state.
- * Kept separate so the selection/dedup rules are testable without a database.
- */
-export function buildAttendanceRows(
-  students: { id: string }[],
-  status: Record<string, string>,
-  reasons: Record<string, string>,
-  base: { institution_id: string | null; coach_id: string; session_date: string },
-): AttendanceInput[] {
-  const seen = new Set<string>()
-  const rows: AttendanceInput[] = []
-  for (const student of students) {
-    const value = status[student.id]
-    if (!value) continue
-    if (seen.has(student.id)) continue // never send the same student twice
-    seen.add(student.id)
-    rows.push({
-      institution_id: base.institution_id,
-      student_id: student.id,
-      coach_id: base.coach_id,
-      session_date: base.session_date,
-      status: value,
-      reason: reasons[student.id]?.trim() ? reasons[student.id].trim() : null,
-    })
-  }
-  return rows
 }
