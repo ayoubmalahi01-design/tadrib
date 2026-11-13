@@ -34,3 +34,5 @@
 .modal:focus{outline:none}
 .unread-badge{min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--accent,#0d6efd);color:#fff;font-size:.72rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
 .load-older{display:block;margin:0 auto 10px;font-size:.82rem}
+.member-list{display:flex;flex-direction:column;gap:6px;max-height:42vh;overflow:auto;margin:8px 0}
+.members-btn{margin-inline-start:auto;font-size:.8rem;display:inline-flex;align-items:center;gap:6px}
