@@ -29,7 +29,6 @@ import {
   Square,
   Pencil,
   Archive,
-  FileUp,
   Settings as SettingsIcon,
 } from "lucide-react";
 import { supabase, isConfigured } from "./lib/supabase";
@@ -857,10 +856,7 @@ function Students({ profile, t }: { profile: Profile; t: T }) {
     [code, setCode] = useState(""),
     [name, setName] = useState(""),
     [birth, setBirth] = useState(""),
-    [loading, setLoading] = useState(true),
-    [bulkOpen, setBulkOpen] = useState(false),
-    [bulkText, setBulkText] = useState(""),
-    [bulkBusy, setBulkBusy] = useState(false);
+    [loading, setLoading] = useState(true);
   const admin = ["owner", "manager", "admin"].includes(profile.role);
   async function load() {
     setLoading(true);
@@ -884,7 +880,6 @@ function Students({ profile, t }: { profile: Profile; t: T }) {
       ),
     [items, search],
   );
-  const parsed = useMemo(() => parseStudentPaste(bulkText), [bulkText]);
   async function openNotes(s: any) {
     setNoteStudent(s);
     setNote("");
@@ -952,56 +947,16 @@ function Students({ profile, t }: { profile: Profile; t: T }) {
     if (error) notify(error.message);
     else load();
   }
-  async function importBulk() {
-    if (!parsed.length) {
-      notify(t("noValidRows"));
-      return;
-    }
-    const seen = new Set<string>();
-    const valid = parsed.filter((x) => {
-      const k = x.student_code.toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return !items.some((s) => s.student_code.toLowerCase() === k);
-    });
-    if (!valid.length) {
-      notify(t("allCodesExist"));
-      return;
-    }
-    setBulkBusy(true);
-    const rows = valid.map((x) => ({
-      ...x,
-      institution_id: profile.institution_id,
-    }));
-    const { error } = await supabase.from("students").insert(rows);
-    if (error) notify(`${t("importFailed")}: ${error.message}`);
-    else {
-      notify(`${rows.length} ${t("importDone")}`);
-      setBulkText("");
-      setBulkOpen(false);
-      load();
-    }
-    setBulkBusy(false);
-  }
   return (
     <>
       <Heading
         title={t("students")}
         action={
           admin && (
-            <div className="heading-actions">
-              <button
-                className="secondary action-btn"
-                onClick={() => setBulkOpen(true)}
-              >
-                <FileUp size={17} />
-                {t("importExcel")}
-              </button>
-              <button className="primary action-btn" onClick={openAdd}>
-                <Plus size={18} />
-                {t("add")}
-              </button>
-            </div>
+            <button className="primary action-btn" onClick={openAdd}>
+              <Plus size={18} />
+              {t("add")}
+            </button>
           )
         }
       />
@@ -1101,39 +1056,6 @@ function Students({ profile, t }: { profile: Profile; t: T }) {
               <button className="primary">{t("save")}</button>
             </div>
           </form>
-        </Modal>
-      )}
-      {bulkOpen && (
-        <Modal title={t("importTitle")} close={() => setBulkOpen(false)}>
-          <p className="muted">{t("importHelp")}</p>
-          <textarea
-            rows={8}
-            value={bulkText}
-            onChange={(e) => setBulkText(e.target.value)}
-            placeholder={t("importPlaceholder")}
-          />
-          <div className="bulk-preview">
-            <b>
-              {t("previewRows")} {parsed.length} {t("previewValid")}
-            </b>
-            {parsed.slice(0, 8).map((r, i) => (
-              <div key={i}>
-                {r.student_code} — {r.full_name}
-              </div>
-            ))}
-          </div>
-          <div className="modal-actions">
-            <button className="secondary" onClick={() => setBulkOpen(false)}>
-              {t("cancel")}
-            </button>
-            <button
-              className="primary"
-              disabled={bulkBusy || !parsed.length}
-              onClick={importBulk}
-            >
-              {bulkBusy ? t("importing") : t("confirmImport")}
-            </button>
-          </div>
         </Modal>
       )}
       {noteStudent && (
