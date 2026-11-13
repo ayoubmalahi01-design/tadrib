@@ -744,7 +744,7 @@ export const dict = {
   },
 } as const
 
-export type Key = keyof typeof dict.ar
+export type Key = keyof typeof dict.ar | keyof typeof uiExtras.ar
 
 /** Translator bound to one language, with English and the raw key as fallbacks. */
 export function makeT(lang: Lang) {
@@ -868,3 +868,67 @@ const uiExtras = {
 Object.assign(dict.ar as unknown as Record<string, string>, uiExtras.ar)
 Object.assign(dict.fr as unknown as Record<string, string>, uiExtras.fr)
 Object.assign(dict.en as unknown as Record<string, string>, uiExtras.en)
+
+const classesExtras = {
+  ar: {
+    classes: 'الأقسام والمجموعات',
+    classesSubtitle: 'تنظيم التلاميذ في أقسام ومجموعات',
+    className: 'اسم القسم / المجموعة',
+    academicYear: 'السنة الدراسية',
+    description: 'الوصف',
+    addClass: 'إضافة قسم',
+    editClass: 'تعديل القسم',
+    noClasses: 'لا توجد أقسام بعد',
+    noClassesBody: 'أنشئ قسماً أو مجموعة لتنظيم تلاميذ المؤسسة وربطهم بالحصص.',
+    classSaved: 'تم حفظ القسم',
+    classDeleted: 'تم حذف القسم',
+    studentsCount: 'عدد التلاميذ',
+    deleteClassConfirm: 'سيتم حذف هذا القسم، وسيصبح تلاميذه بدون قسم. هل تريد المتابعة؟',
+    fieldRequired: 'هذا الحقل مطلوب',
+    noInstitutionScope: 'لا يوجد ربط بمؤسسة لهذا الحساب',
+    totalClasses: 'إجمالي الأقسام',
+    unassigned: 'بدون قسم',
+  },
+  fr: {
+    classes: 'Classes et groupes',
+    classesSubtitle: 'Organisez les élèves en classes et groupes',
+    className: 'Nom de la classe / du groupe',
+    academicYear: 'Année scolaire',
+    description: 'Description',
+    addClass: 'Ajouter une classe',
+    editClass: 'Modifier la classe',
+    noClasses: 'Aucune classe pour le moment',
+    noClassesBody: 'Créez une classe ou un groupe pour organiser les élèves et les relier aux séances.',
+    classSaved: 'Classe enregistrée',
+    classDeleted: 'Classe supprimée',
+    studentsCount: 'Élèves',
+    deleteClassConfirm: 'Cette classe sera supprimée et ses élèves n’auront plus de classe. Continuer ?',
+    fieldRequired: 'Ce champ est obligatoire',
+    noInstitutionScope: 'Aucun établissement lié à ce compte',
+    totalClasses: 'Total des classes',
+    unassigned: 'Sans classe',
+  },
+  en: {
+    classes: 'Classes & groups',
+    classesSubtitle: 'Organise students into classes and groups',
+    className: 'Class / group name',
+    academicYear: 'Academic year',
+    description: 'Description',
+    addClass: 'Add class',
+    editClass: 'Edit class',
+    noClasses: 'No classes yet',
+    noClassesBody: 'Create a class or group to organise the institution students and link them to sessions.',
+    classSaved: 'Class saved',
+    classDeleted: 'Class deleted',
+    studentsCount: 'Students',
+    deleteClassConfirm: 'This class will be deleted and its students will have no class. Continue?',
+    fieldRequired: 'This field is required',
+    noInstitutionScope: 'No institution linked to this account',
+    totalClasses: 'Total classes',
+    unassigned: 'Unassigned',
+  },
+} as const
+
+Object.assign(dict.ar as unknown as Record<string, string>, classesExtras.ar)
+Object.assign(dict.fr as unknown as Record<string, string>, classesExtras.fr)
+Object.assign(dict.en as unknown as Record<string, string>, classesExtras.en)
