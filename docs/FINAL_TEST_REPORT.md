@@ -210,3 +210,21 @@ Member add/remove calls `conversation_members` directly and relies on the RLS po
 | Project verification | `npm run verify` | PASS — 28 assertions |
 
 Draft persistence, TTL expiry, per-user scoping, corrupt-snapshot handling and notification gating are covered by unit tests with injected storage/environment. **Not executed end to end:** the draft insert/update against a live Supabase project (no credentials here) and the OS notification popup (requires a real browser with granted permission). `supabase/migrations/0002_report_draft_submit_notify.sql` is written but not applied.
+
+## Round 13 addendum — language parity
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Unit tests | `npm test` | PASS — 53/53 (6 new parity tests) |
+| Typecheck + build | `npm run build` | PASS — entry 88.82 kB, react-vendor 164.45 kB, supabase 214.35 kB, icons 13.88 kB |
+| Project verification | `npm run verify` | PASS — 28 assertions |
+| Dependency scan | security preset | PASS — 162 packages, 0 blocking, 2 moderate react-router advisories (fix only in 7.18.0) |
+
+The parity suite asserts key completeness, non-empty values, absence of placeholder text, `makeT` resolution in all three languages and RTL only for Arabic. It validates the dictionaries themselves; rendered RTL layout at phone width was still not checked on a device.
+
+## Cumulative test totals at the end of this mission
+
+- Unit/regression tests: **53**, all passing (`node --test`).
+- Build: TypeScript check plus Vite production build, four chunks.
+- Structural verification: 28 assertions over 14 required files.
+- **Never executed in this environment:** any authenticated Supabase session, any RLS policy at runtime, any storage upload, Realtime delivery, service-worker offline behaviour, PWA installation, or a real mobile device/browser viewport test. No test result above should be read as evidence for those.

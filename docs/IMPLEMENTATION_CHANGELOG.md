@@ -1,5 +1,11 @@
 # THE TRAINERS (تدرّب) — Implementation Changelog
 
+## Round 13 — language parity guard (F6 follow-up)
+
+- New `tests/i18n-parity.test.ts` (6 tests). `Key` is derived from the Arabic dictionary, so a label missing from French or English could still compile and then render as a raw key or a blank control. The suite now pins the direction that matters: every Arabic key must exist as a non-empty string in ar, fr **and** en; no value may be a placeholder (`todo`, `tbd`, `undefined`, the key name itself); `makeT(lang)` must resolve every key in every language without echoing the key back; only `ar` is RTL; and the eight labels added in round 12 must exist in all three languages with Arabic and French wording that differs from English.
+- Result: the dictionaries already satisfied all of it — no translation had to be added or repaired. The guard exists so future edits cannot silently break it.
+- Verified: `npm test` **53/53**, `npm run build` OK, `npm run verify` 28 checks.
+
 ## Round 12 — report drafts (D8) and notification delivery (D19)
 
 Daily reports were previously all-or-nothing: closing the modal, reloading the tab or losing signal discarded every typed observation, and the only write path was `status:'submitted'`. The audit asked for create → save draft → edit draft → submit.

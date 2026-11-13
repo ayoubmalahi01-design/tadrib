@@ -98,3 +98,50 @@ the migration, the live RLS/auth verification and the device tests are still
 outstanding. Those are owner actions, not code changes.
 
 **Explicit authorisation is required before any deployment is performed.**
+
+---
+
+# Final readiness assessment — end of the implementation mission
+
+## Verdict
+
+**Ready to host behind a test Supabase project. Not yet production-ready.**
+
+The client is in a materially better state than at the start of the mission: it
+builds, type-checks, passes 53 unit tests and 28 structural assertions, no longer
+depends on a third-party font CDN, ships four cacheable chunks instead of one
+477 kB file, never blocks the UI with `alert()`, keeps report work in drafts, and
+has tested helpers for account gating, attendance sessions, drafts, notifications
+and language completeness.
+
+It is **not** production-ready because five prerequisites remain and none of them
+can be satisfied from inside this repository alone.
+
+## Owner actions, in order
+
+| # | Action | Why | Consequence if skipped |
+| --- | --- | --- | --- |
+| 1 | Run `supabase/migrations/0001_attendance_session_dimension.sql` | Adds the session dimension needed for two sessions on one day | Attendance still works in legacy single-session mode; a second daily session cannot be recorded |
+| 2 | Run `supabase/migrations/0002_report_draft_submit_notify.sql` | Fires the administrator notification when a saved draft is submitted | Drafts work, but submitting one notifies nobody |
+| 3 | Add the deployed origin to Supabase Auth → URL Configuration → Redirect URLs | Password reset links must return to the app | Reset e-mails fail to land on the application |
+| 4 | Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the hosting environment | The client reads configuration from the environment, never from source | The app shows its "not configured" state |
+| 5 | Perform one authenticated pass as owner, administrator and coach | Verifies RLS, storage policies, Realtime and the account-state gates at runtime | Those protections are only proven by reading the schema today |
+
+Never place a service-role key in the client or in any `VITE_*` variable.
+
+## Deliberately not changed
+
+- `react-router` stays on 6.30.6. Both advisories are moderate and their only fix
+  is the 7.18.0 major upgrade, which would be an unrelated migration.
+- The Supabase project, schema, buckets, policies and existing records are
+  untouched. Both migrations are additive, re-runnable and reversible.
+- No feature was removed to make a check pass, and no finding was suppressed.
+
+## Honest verification boundary
+
+No authenticated session, RLS policy, storage upload, Realtime subscription,
+service-worker offline path, PWA installation or real mobile viewport was
+exercised in this environment. Those remain unverified and are listed as such in
+`FINAL_TEST_REPORT.md`.
+
+**Explicit authorisation is still required before any deployment.**

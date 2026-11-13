@@ -191,3 +191,66 @@ The application is **not** declared production-ready: the database migration is
 pending owner execution, no live RLS/auth run has been performed, and the
 remaining audit items are still open. The exact remaining steps are listed in
 [DEPLOYMENT_READINESS.md](./DEPLOYMENT_READINESS.md).
+
+---
+
+# Final status — end of the implementation mission
+
+This section supersedes the interim status above and records the state of branch
+`appjet` after thirteen implementation rounds. Every earlier feature described in
+this report is still present; nothing was rebuilt from scratch, no table, column,
+policy, bucket or record was dropped, and no SQL was executed against any
+database.
+
+## What was implemented after the attendance work
+
+| Round | Change | Audit item |
+| --- | --- | --- |
+| 6 | Rejected/pending/suspended accounts explained correctly on the gate screen | account messaging defect |
+| 6 | Bulk attendance: mark all present / clear all | D6 |
+| 7 | Password reset by e-mail, modal ESC + `role="dialog"` + focus handling | F7, S2, F14 |
+| 8 | Chat unread badges, read receipts, older-history paging | F9, D14, D16, D17 |
+| 8 | Group membership management | F8, D15 |
+| 9 | Locale-aware date/time formatting (`Intl`, ar/fr/en) | F19 |
+| 10 | Non-blocking toast channel replacing all 50 `alert()` calls | F13 |
+| 10 | Dead imports and unused code removed | F18 |
+| 11 | Vendor chunk splitting: entry bundle 477 kB → 83.9 kB | F12 |
+| 11 | Google Fonts dependency removed, CSP tightened | F15 |
+| 12 | Report drafts: autosave, save, resume, submit; admin notification on submit | D8 |
+| 12 | Browser notifications gated by permission and tab visibility | D19 |
+| 12 | Translated accessible name for the modal close button | F14 |
+| 13 | Language-parity guard over ar/fr/en | F6 follow-up |
+
+## Preserved functionality
+
+Login and account gating, institution branding and settings, student and group
+management with institutional numbering, attendance and lateness, private trainer
+notes, daily reports with review, individual and group messaging with file and
+voice attachments, announcements, notifications, audit logging and the PWA shell
+all remain in place. The single-session attendance fallback still keeps the
+application working on a database where migration 0001 has not run.
+
+## Real check results at the end of the mission
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Unit and regression tests | `npm test` | PASS — 53/53 |
+| Typecheck and production build | `npm run build` | PASS — 4 chunks, entry 88.82 kB (25.17 kB gzip) |
+| Structural verification | `npm run verify` | PASS — 28 assertions over 14 required files |
+| Dependency advisories | security scan | 162 packages, 0 blocking, 2 moderate (`react-router` 6.30.6; fixed only in 7.18.0) |
+
+## What remains outside the code
+
+1. `supabase/migrations/0001_attendance_session_dimension.sql` — required for
+true multi-session attendance; attendance currently degrades gracefully without it.
+2. `supabase/migrations/0002_report_draft_submit_notify.sql` — required so that
+submitting a saved draft notifies administrators.
+3. A live authenticated verification of RLS, storage policies, Realtime and the
+account-state gates, which needs project credentials that do not exist here.
+4. Device and PWA testing: Arabic RTL layout, phone-width overflow, offline
+behaviour and installation were not exercised on real hardware.
+5. `A12` (MFA) remains unimplemented; the audit itself classifies it as outside
+the repository's declared specification.
+
+No deployment was performed and none is authorised. All work is committed to
+branch `appjet` only.
