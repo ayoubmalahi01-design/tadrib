@@ -1003,6 +1003,7 @@ Object.assign(dict.en as unknown as Record<string, string>, classesExtras.en);
 const gapExtras = {
   ar: {
     saved: "تم الحفظ",
+    sendFailed: "تعذر إرسال الرسالة",
     loadError: "تعذر تحميل البيانات",
     confirmDelete: "هل تريد الحذف نهائياً؟ لا يمكن التراجع.",
     entryDate: "تاريخ الملاحظة",
@@ -1025,6 +1026,7 @@ const gapExtras = {
   },
   fr: {
     saved: "Enregistré",
+    sendFailed: "Échec de l’envoi du message",
     loadError: "Impossible de charger les données",
     confirmDelete: "Supprimer définitivement ? Cette action est irréversible.",
     entryDate: "Date de la note",
@@ -1049,6 +1051,7 @@ const gapExtras = {
   },
   en: {
     saved: "Saved",
+    sendFailed: "Message could not be sent",
     loadError: "Could not load data",
     confirmDelete: "Delete permanently? This cannot be undone.",
     entryDate: "Note date",

@@ -2064,7 +2064,11 @@ function Messages({ profile, t }: { profile: Profile; t: T }) {
     [membersOpen, setMembersOpen] = useState(false),
     [convMembers, setConvMembers] = useState<any[]>([]),
     [memberBusy, setMemberBusy] = useState(false),
-    [newMember, setNewMember] = useState("");
+    [newMember, setNewMember] = useState(""),
+    [query, setQuery] = useState(""),
+    [retry, setRetry] = useState<{ body: string; file: File | null } | null>(null);
+  const visibleConversations = filterConversations(conversations, query, current?.id);
+  const visibleMessages = filterMessages(items, query);
   const recorder = useRef<MediaRecorder | null>(null),
     chunks = useRef<Blob[]>([]);
   async function loadUnread() {
@@ -2355,26 +2359,29 @@ function Messages({ profile, t }: { profile: Profile; t: T }) {
     }
     setInviteBusy(false);
   }
-  async function send(e: FormEvent) {
-    e.preventDefault();
-    if (!current || (!body.trim() && !file)) return;
+  async function deliver(text: string, attachment: File | null) {
+    if (!current || (!text.trim() && !attachment)) return;
     setBusy(true);
     let media_path: string | null = null;
     let message_type = "text";
-    if (file) {
-      const ext = file.name.split(".").pop() || "bin";
+    if (attachment) {
+      const ext = attachment.name.split(".").pop() || "bin";
       media_path = `${profile.institution_id}/${current.id}/${profile.id}/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("trainer-media")
-        .upload(media_path, file, { upsert: false, contentType: file.type });
+        .upload(media_path, attachment, {
+          upsert: false,
+          contentType: attachment.type,
+        });
       if (upErr) {
-        notify(upErr.message);
+        setRetry({ body: text, file: attachment });
+        notify(`${t("sendFailed")}: ${upErr.message}`);
         setBusy(false);
         return;
       }
-      message_type = file.type.startsWith("image/")
+      message_type = attachment.type.startsWith("image/")
         ? "image"
-        : file.type.startsWith("audio/")
+        : attachment.type.startsWith("audio/")
           ? "audio"
           : "file";
     }
@@ -2382,17 +2389,27 @@ function Messages({ profile, t }: { profile: Profile; t: T }) {
       sender_id: profile.id,
       institution_id: profile.institution_id,
       conversation_id: current.id,
-      body: body.trim() || null,
+      body: text.trim() || null,
       message_type,
       media_path,
     });
-    if (error) notify(error.message);
-    else {
-      setBody("");
-      setFile(null);
-      loadMessages(current.id);
-    }
     setBusy(false);
+    if (error) {
+      setRetry({ body: text, file: attachment });
+      notify(`${t("sendFailed")}: ${error.message}`);
+      return;
+    }
+    setRetry(null);
+    setBody("");
+    setFile(null);
+    loadMessages(current.id);
+  }
+  async function send(e: FormEvent) {
+    e.preventDefault();
+    await deliver(body, file);
+  }
+  async function resend() {
+    if (retry) await deliver(retry.body, retry.file);
   }
   async function startRecording() {
     try {
@@ -2445,7 +2462,16 @@ function Messages({ profile, t }: { profile: Profile; t: T }) {
       />
       <section className="panel chat-workspace">
         <aside className="conversation-list">
-          {conversations.map((c) => (
+          <div className="chat-search">
+            <Search size={16} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("search")}
+              aria-label={t("search")}
+            />
+          </div>
+          {visibleConversations.map((c) => (
             <button
               key={c.id}
               className={`conversation-item ${current?.id === c.id ? "selected" : ""}`}
@@ -2508,7 +2534,7 @@ function Messages({ profile, t }: { profile: Profile; t: T }) {
                     {olderBusy ? t("loading") : t("loadOlder")}
                   </button>
                 )}
-                {items.map((m) => (
+                {visibleMessages.map((m) => (
                   <div
                     className={`chat-bubble ${m.sender_id === profile.id ? "mine" : ""}`}
                     key={m.id}
@@ -2532,10 +2558,25 @@ function Messages({ profile, t }: { profile: Profile; t: T }) {
                     <small>{formatTime(m.created_at)}</small>
                   </div>
                 ))}
-                {items.length === 0 && (
-                  <p className="muted empty-chat">{t("noMessages")}</p>
+                {visibleMessages.length === 0 && (
+                  <p className="muted empty-chat">
+                    {query ? t("noResults") : t("noMessages")}
+                  </p>
                 )}
               </div>
+              {retry && (
+                <div className="retry-bar">
+                  <span>{t("sendFailed")}</span>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={resend}
+                    disabled={busy}
+                  >
+                    {t("retry")}
+                  </button>
+                </div>
+              )}
               <form className="chat-compose" onSubmit={send}>
                 <label className="attach-btn" title={t("attachFile")}>
                   <Paperclip size={19} />
