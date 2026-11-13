@@ -26,3 +26,6 @@
 .chat-panel-inner .chat-messages{flex:1;min-height:350px;max-height:560px;overflow:auto;padding:14px}
 .empty-chat{display:grid;place-items:center;min-height:200px;color:var(--muted,#64748b);padding:20px;text-align:center}
 @media(max-width:680px){.chat-workspace{grid-template-columns:1fr;min-height:0}.conversation-list{display:flex;gap:6px;overflow-x:auto;max-height:none;border-inline-end:0;border-bottom:1px solid var(--line,#e5e7eb)}.conversation-item{min-width:170px;width:auto}.chat-panel-inner{min-height:430px}.heading-actions .action-btn{font-size:12px;padding:9px 10px}}
+
+.attendance-bulk{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.attendance-bulk button{flex:1 1 auto;min-height:40px}
