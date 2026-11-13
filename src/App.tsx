@@ -35,6 +35,14 @@ import {
 } from "lucide-react";
 import { supabase, isConfigured } from "./lib/supabase";
 import {
+  canEditReport,
+  canReviewReport,
+  reportStatus,
+  reviewPayload,
+  statusKey,
+  submitPayload,
+} from "./lib/report-workflow";
+import {
   makeT,
   isRtl,
   type Lang,
@@ -790,6 +798,7 @@ function Students({ profile, t }: { profile: Profile; t: T }) {
     [noteStudent, setNoteStudent] = useState<any>(null),
     [noteItems, setNoteItems] = useState<any[]>([]),
     [note, setNote] = useState(""),
+    [noteType, setNoteType] = useState("general"),
     [code, setCode] = useState(""),
     [name, setName] = useState(""),
     [birth, setBirth] = useState(""),
@@ -868,11 +877,12 @@ function Students({ profile, t }: { profile: Profile; t: T }) {
       student_id: noteStudent.id,
       author_id: profile.id,
       body: note,
-      note_type: "general",
+      note_type: noteType,
     });
     if (error) notify(error.message);
     else {
       setNote("");
+      notify(t("noteSaved"));
       openNotes(noteStudent);
     }
   }
@@ -1002,6 +1012,19 @@ function Students({ profile, t }: { profile: Profile; t: T }) {
         >
           <form onSubmit={saveNote}>
             <label>
+              {t("noteType")}
+              <select
+                value={noteType}
+                onChange={(e) => setNoteType(e.target.value)}
+              >
+                <option value="general">{t("general")}</option>
+                <option value="behavior">{t("behavior")}</option>
+                <option value="discipline">{t("discipline")}</option>
+                <option value="progress">{t("progress")}</option>
+                <option value="other">{t("other")}</option>
+              </select>
+            </label>
+            <label>
               {t("notes")}
               <DictateButton onText={setNote} />
               <textarea
@@ -1016,7 +1039,10 @@ function Students({ profile, t }: { profile: Profile; t: T }) {
           {noteItems.map((n) => (
             <article className="notice note-item" key={n.id}>
               <p>{n.body}</p>
-              <small>{formatDateTime(n.created_at)}</small>
+              <small>
+                <span className="badge">{t(n.note_type || "general")}</span>{" "}
+                {formatDateTime(n.created_at)}
+              </small>
             </article>
           ))}
         </Modal>
@@ -1324,9 +1350,7 @@ function Reports({ profile, t }: { profile: Profile; t: T }) {
       coach_name_snapshot: profile.full_name,
       shift_id: shift?.id || null,
       report_date: localDate(),
-      status: "submitted",
-      is_finalized: true,
-      finalized_at: new Date().toISOString(),
+      ...submitPayload(new Date().toISOString()),
       shift_start: shift?.started_at || null,
       shift_end: shift?.ended_at || new Date().toISOString(),
     };
@@ -1387,25 +1411,33 @@ function Reports({ profile, t }: { profile: Profile; t: T }) {
     setDraftId(r.id);
     setShow(true);
   }
-  async function review(id: string) {
+  const [reviewing, setReviewing] = useState<any>(null),
+    [reviewNote, setReviewNote] = useState("");
+  async function submitReview(action: "approve" | "request_changes") {
+    if (!reviewing) return;
+    setBusy(true);
     const { error } = await supabase
       .from("daily_reports")
-      .update({
-        status: "reviewed",
-        reviewed_by: profile.id,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-    if (error) notify(error.message);
-    else load();
+      .update(
+        reviewPayload(action, profile.id, reviewNote, new Date().toISOString()),
+      )
+      .eq("id", reviewing.id);
+    setBusy(false);
+    if (error) {
+      notify(error.message);
+      return;
+    }
+    notify(t(action === "approve" ? "reportApproved" : "changesRequested"));
+    setReviewing(null);
+    setReviewNote("");
+    load();
   }
   const admin = ["manager", "admin"].includes(profile.role);
   const [query, setQuery] = useState(""),
     [statusFilter, setStatusFilter] = useState("all"),
     [from, setFrom] = useState(""),
     [to, setTo] = useState("");
-  const statusOf = (r: any) =>
-    r.status === "reviewed" ? "reviewed" : r.is_finalized ? "finalized" : "draft";
+  const statusOf = (r: any) => reportStatus(r);
   const visible = items.filter((r) => {
     const name = String(r.coach_name_snapshot || "").toLowerCase();
     if (query && !name.includes(query.trim().toLowerCase())) return false;
@@ -1445,9 +1477,10 @@ function Reports({ profile, t }: { profile: Profile; t: T }) {
               aria-label={t("status")}
             >
               <option value="all">{t("allStatuses")}</option>
-              <option value="draft">{t("draft")}</option>
-              <option value="finalized">{t("finalized")}</option>
-              <option value="reviewed">{t("reviewed")}</option>
+              <option value="draft">{t("statusDraft")}</option>
+              <option value="submitted">{t("statusSubmitted")}</option>
+              <option value="needs_changes">{t("statusNeedsChanges")}</option>
+              <option value="reviewed">{t("statusReviewed")}</option>
             </select>
             <input
               type="date"
@@ -1485,29 +1518,33 @@ function Reports({ profile, t }: { profile: Profile; t: T }) {
                     <td>{r.absent_count}</td>
                     <td>{r.late_count}</td>
                     <td>
-                      {r.status === "reviewed"
-                        ? t("reviewed")
-                        : r.is_finalized
-                          ? t("finalized")
-                          : t("draft")}
+                      <span className={`badge status-${statusOf(r)}`}>
+                        {t(statusKey(statusOf(r)))}
+                      </span>
+                      {r.review_note && (
+                        <small className="muted review-note">
+                          {r.review_note}
+                        </small>
+                      )}
                     </td>
                     <td>
-                      {profile.role === "coach" &&
-                        r.status === "draft" &&
-                        !r.is_finalized && (
-                          <button
-                            className="secondary"
-                            onClick={() => continueDraft(r)}
-                          >
-                            {t("continueDraft")}
-                          </button>
-                        )}
-                      {admin && r.is_finalized && r.status !== "reviewed" && (
+                      {canEditReport(r, profile.role, profile.id) && (
                         <button
                           className="secondary"
-                          onClick={() => review(r.id)}
+                          onClick={() => continueDraft(r)}
                         >
-                          {t("approveReport")}
+                          {t("continueDraft")}
+                        </button>
+                      )}
+                      {canReviewReport(r, profile.role) && (
+                        <button
+                          className="secondary"
+                          onClick={() => {
+                            setReviewing(r);
+                            setReviewNote("");
+                          }}
+                        >
+                          {t("review")}
                         </button>
                       )}
                     </td>
@@ -1580,6 +1617,50 @@ function Reports({ profile, t }: { profile: Profile; t: T }) {
             </div>
             <small className="muted">{t("reportLocked")}</small>
           </form>
+        </Modal>
+      )}
+      {reviewing && admin && (
+        <Modal
+          title={`${t("review")} · ${reviewing.coach_name_snapshot || ""}`}
+          close={() => setReviewing(null)}
+          closeLabel={t("close")}
+        >
+          <p className="muted">{reviewing.report_date}</p>
+          <p>{reviewing.notes}</p>
+          <label>
+            {t("reviewNote")}
+            <textarea
+              rows={3}
+              value={reviewNote}
+              onChange={(e) => setReviewNote(e.target.value)}
+            />
+            <small className="muted">{t("reviewNoteHint")}</small>
+          </label>
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setReviewing(null)}
+            >
+              {t("cancel")}
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => submitReview("request_changes")}
+            >
+              {t("requestChanges")}
+            </button>
+            <button
+              type="button"
+              className="primary"
+              disabled={busy}
+              onClick={() => submitReview("approve")}
+            >
+              {t("approveReport")}
+            </button>
+          </div>
         </Modal>
       )}
     </>
