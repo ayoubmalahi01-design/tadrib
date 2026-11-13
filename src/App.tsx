@@ -31,8 +31,12 @@ import {
   Lock,
   Trash2,
   Archive,
+  FileText,
   Settings as SettingsIcon,
 } from "lucide-react";
+import ReportTemplateForm from "./components/ReportTemplateForm";
+import ReportArchive from "./components/ReportArchive";
+import ReportTemplates from "./components/ReportTemplates";
 import { supabase, isConfigured } from "./lib/supabase";
 import {
   canEditReport,
@@ -276,11 +280,16 @@ export default function App() {
         ["/messages", MessageCircle, "messages"],
         ["/sessions", Activity, "sessions"],
         ["/profile", ShieldCheck, "profile"],
+        ...(profile.role === "coach"
+          ? [["/reports/form", FileText, "tplCoachForm"]]
+          : []),
         ...(admin
           ? [
               ["/classes", GraduationCap, "classes"],
               ["/team", UserPlus, "team"],
               ["/medical", HeartPulse, "medical"],
+              ["/templates", FileText, "tplNav"],
+              ["/reports/archive", Archive, "expTitle"],
               ["/settings", SettingsIcon, "settings"],
               ["/audit", History, "audit"],
             ]
@@ -383,6 +392,36 @@ export default function App() {
               path="/reports"
               element={
                 !owner ? <Reports profile={profile} t={t} /> : <Denied t={t} />
+              }
+            />
+            <Route
+              path="/reports/form"
+              element={
+                profile.role === "coach" ? (
+                  <ReportTemplateForm profile={profile} t={t} notify={notify} />
+                ) : (
+                  <Denied t={t} />
+                )
+              }
+            />
+            <Route
+              path="/reports/archive"
+              element={
+                admin && !owner ? (
+                  <ReportArchive profile={profile} t={t} notify={notify} />
+                ) : (
+                  <Denied t={t} />
+                )
+              }
+            />
+            <Route
+              path="/templates"
+              element={
+                admin && !owner ? (
+                  <ReportTemplates profile={profile} t={t} notify={notify} />
+                ) : (
+                  <Denied t={t} />
+                )
               }
             />
             <Route
