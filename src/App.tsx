@@ -1400,6 +1400,21 @@ function Reports({ profile, t }: { profile: Profile; t: T }) {
     else load();
   }
   const admin = ["manager", "admin"].includes(profile.role);
+  const [query, setQuery] = useState(""),
+    [statusFilter, setStatusFilter] = useState("all"),
+    [from, setFrom] = useState(""),
+    [to, setTo] = useState("");
+  const statusOf = (r: any) =>
+    r.status === "reviewed" ? "reviewed" : r.is_finalized ? "finalized" : "draft";
+  const visible = items.filter((r) => {
+    const name = String(r.coach_name_snapshot || "").toLowerCase();
+    if (query && !name.includes(query.trim().toLowerCase())) return false;
+    if (statusFilter !== "all" && statusOf(r) !== statusFilter) return false;
+    const day = String(r.report_date || "");
+    if (from && day < from) return false;
+    if (to && day > to) return false;
+    return true;
+  });
   return (
     <>
       <Heading
@@ -1417,6 +1432,37 @@ function Reports({ profile, t }: { profile: Profile; t: T }) {
         <Empty t={t} />
       ) : (
         <section className="panel">
+          <div className="filter-bar">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("search")}
+              aria-label={t("search")}
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label={t("status")}
+            >
+              <option value="all">{t("allStatuses")}</option>
+              <option value="draft">{t("draft")}</option>
+              <option value="finalized">{t("finalized")}</option>
+              <option value="reviewed">{t("reviewed")}</option>
+            </select>
+            <input
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              aria-label={t("fromDate")}
+            />
+            <input
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              aria-label={t("toDate")}
+            />
+          </div>
+          {visible.length === 0 && <p className="muted">{t("noResults")}</p>}
           <div className="table-wrap">
             <table>
               <thead>
@@ -1431,7 +1477,7 @@ function Reports({ profile, t }: { profile: Profile; t: T }) {
                 </tr>
               </thead>
               <tbody>
-                {items.map((r) => (
+                {visible.map((r) => (
                   <tr key={r.id}>
                     <td>{r.coach_name_snapshot}</td>
                     <td>{r.report_date}</td>
@@ -1959,6 +2005,34 @@ function Notices({ profile, t }: { profile: Profile; t: T }) {
 function Notifications({ profile, t }: { profile: Profile; t: T }) {
   const [items, setItems] = useState<any[]>([]),
     [perm, setPerm] = useState<PushPermission>(pushEnv().permission);
+  const nav = useNavigate();
+  function targetFor(type: string | null | undefined) {
+    switch (type) {
+      case "notice":
+        return "/notices";
+      case "report":
+        return "/reports";
+      case "message":
+        return "/messages";
+      case "attendance":
+        return "/attendance";
+      default:
+        return "/notifications";
+    }
+  }
+  async function openItem(n: any) {
+    if (!n.read_at) await markRead(n.id);
+    nav(targetFor(n.notification_type));
+  }
+  async function markAllRead() {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("recipient_id", profile.id)
+      .is("read_at", null);
+    if (error) notify(error.message);
+    else load();
+  }
   async function load() {
     const { data, error } = await supabase
       .from("notifications")
@@ -2003,6 +2077,11 @@ function Notifications({ profile, t }: { profile: Profile; t: T }) {
   return (
     <>
       <Heading title={t("notifications")} />
+      {items.some((n) => !n.read_at) && (
+        <button className="secondary action-btn" onClick={markAllRead}>
+          <Check size={16} /> {t("markAllRead")}
+        </button>
+      )}
       {perm === "default" && (
         <button
           className="secondary action-btn"
@@ -2033,11 +2112,16 @@ function Notifications({ profile, t }: { profile: Profile; t: T }) {
                 <small>{n.body}</small>
                 <small>{formatDateTime(n.created_at)}</small>
               </div>
-              {!n.read_at && (
-                <button className="secondary" onClick={() => markRead(n.id)}>
-                  <Check size={15} /> {t("markRead")}
+              <div className="row-actions">
+                <button className="secondary" onClick={() => openItem(n)}>
+                  {t("openItem")}
                 </button>
-              )}
+                {!n.read_at && (
+                  <button className="secondary" onClick={() => markRead(n.id)}>
+                    <Check size={15} /> {t("markRead")}
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </section>
