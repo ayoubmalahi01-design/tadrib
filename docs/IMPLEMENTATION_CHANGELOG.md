@@ -1,5 +1,15 @@
 # THE TRAINERS (تدرّب) — Implementation Changelog
 
+## Round 8 — group member management (F8/D15)
+
+- `src/App.tsx` (Messages): added `loadConvMembers()`, `addMember()` and `removeMember()` over `conversation_members`. Group conversations now expose a "group members" button in the chat header that opens a modal listing current members, letting the creator or an institution administrator remove a member (the creator is never offered for removal) and add any active institution member who is not already in the conversation.
+- Authorisation is enforced by the existing RLS policies `conversation_members_creator_add` and `conversation_members_remove`, so the UI restriction is a convenience layer, not the security boundary.
+- `src/lib/i18n.ts`: `groupMembers`, `addMember`, `removeMember`, `membersHelp` in ar/fr/en.
+- `src/styles.css`: `.member-list` (scrollable, capped height) and `.members-btn`.
+- Verified: `npm test` 24/24, `npm run build` OK, `npm run verify` 28 checks.
+- Not verified: add/remove was not executed against a live database; a coach who is not the group creator will be refused by RLS with a surfaced error rather than a silently disabled control.
+
+
 ## Round 7 — messaging: unread badges, read receipts, history paging (F9/D14/D16/D17)
 
 - `src/App.tsx` (Messages): added `loadUnread()` using the existing `unread_counts()` RPC and `openConversation()`, which selects a conversation and calls `mark_conversation_read(p_conversation_id)`. Unread totals now appear as a badge (capped at `99+`) on each conversation row, refresh on load, on conversation open and on every realtime insert.

@@ -170,3 +170,13 @@ The gate tests are pure-logic tests: they prove the mapping from profile state t
 | Project verification | `npm run verify` | PASS — 28 assertions |
 
 Password reset is implemented against the Supabase Auth API but was **not** executed end to end: no project credentials or redirect allow-list exist in this environment. The success and error paths are therefore unproven at runtime.
+
+## Round 8 addendum — group member management
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Unit tests | `npm test` | PASS — 24/24 |
+| Typecheck + build | `npm run build` | PASS |
+| Project verification | `npm run verify` | PASS — 28 assertions |
+
+Member add/remove calls `conversation_members` directly and relies on the RLS policies for authorisation. Not executed against a live database in this environment.
