@@ -3223,3 +3223,255 @@ function Denied({ t }: { t: T }) {
     </section>
   );
 }
+
+/* ------------------------------------------------------------------ *
+ * Profile page: account details, interface language and role summary.
+ * Writes only to the signed-in user's own profiles row.
+ * ------------------------------------------------------------------ */
+function ProfilePage({
+  profile,
+  t,
+  lang,
+  setLang,
+}: {
+  profile: Profile;
+  t: T;
+  lang: Lang;
+  setLang: (v: Lang) => void;
+}) {
+  const [name, setName] = useState(profile.full_name || "");
+  const [institution, setInstitution] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!profile.institution_id) {
+      setInstitution("");
+      return;
+    }
+    let alive = true;
+    supabase
+      .from("institutions")
+      .select("name")
+      .eq("id", profile.institution_id)
+      .maybeSingle()
+      .then(({ data, error: err }) => {
+        if (!alive) return;
+        if (err) setError(err.message);
+        setInstitution((data as { name?: string } | null)?.name || "");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [profile.institution_id]);
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) {
+      setError(t("name"));
+      return;
+    }
+    setSaving(true);
+    setError("");
+    const { error: err } = await supabase
+      .from("profiles")
+      .update({ full_name: name.trim(), preferred_language: lang })
+      .eq("id", profile.id);
+    setSaving(false);
+    if (err) setError(err.message);
+    else notify(t("profileUpdated"));
+  }
+
+  return (
+    <>
+      <PageHeader
+        title={t("profile")}
+        subtitle={t("myAccount")}
+        icon={<ShieldCheck size={20} />}
+      />
+      <Panel title={t("myAccount")}>
+        <form className="ui-form" onSubmit={save}>
+          <label className="ui-field">
+            <span className="ui-field-label">{t("name")}</span>
+            <input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+          <label className="ui-field">
+            <span className="ui-field-label">{t("emailAddress")}</span>
+            <input value={profile.email || ""} readOnly />
+          </label>
+          <label className="ui-field">
+            <span className="ui-field-label">{t("institutionLabel")}</span>
+            <input value={institution || t("noInstitution")} readOnly />
+          </label>
+          <label className="ui-field">
+            <span className="ui-field-label">{t("languageLabel")}</span>
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value as Lang)}
+            >
+              <option value="ar">العربية</option>
+              <option value="fr">Français</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <div className="ui-inline">
+            <Badge tone="info">{t(profile.role)}</Badge>
+            <Badge
+              tone={profile.account_status === "active" ? "success" : "warn"}
+            >
+              {profile.account_status}
+            </Badge>
+          </div>
+          {error && <p className="ui-field-error">{error}</p>}
+          <button className="primary" disabled={saving}>
+            {saving ? "..." : t("save")}
+          </button>
+        </form>
+      </Panel>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Session history: every coach_shifts row the account may read, with the
+ * number of attendance records captured in that session.
+ * ------------------------------------------------------------------ */
+function Sessions({ profile, t }: { profile: Profile; t: T }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    const { data, error: err } = await supabase
+      .from("coach_shifts")
+      .select("id,coach_id,started_at,ended_at")
+      .order("started_at", { ascending: false })
+      .limit(60);
+    if (err) {
+      setError(err.message);
+      setLoading(false);
+      return;
+    }
+    const list = data || [];
+    setRows(list);
+    const ids = list.map((r: any) => r.id).filter(Boolean);
+    if (ids.length) {
+      // session_key only exists once migration 0001 is applied; ignore the
+      // error so the page still lists shifts on an un-migrated database.
+      const res = await supabase
+        .from("attendance_records")
+        .select("session_key")
+        .in("session_key", ids);
+      if (!res.error) {
+        const map: Record<string, number> = {};
+        (res.data || []).forEach((r: any) => {
+          if (r.session_key) map[r.session_key] = (map[r.session_key] || 0) + 1;
+        });
+        setCounts(map);
+      }
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    load();
+  }, [profile.id]);
+
+  const open = rows.filter((r) => !r.ended_at).length;
+
+  return (
+    <>
+      <PageHeader
+        title={t("sessions")}
+        subtitle={t("sessionHistory")}
+        icon={<Activity size={20} />}
+        actions={
+          <button className="secondary" onClick={load} disabled={loading}>
+            {t("refresh")}
+          </button>
+        }
+      />
+      <div className="ui-stats">
+        <StatCard
+          label={t("totalSessions")}
+          value={rows.length}
+          tone="accent"
+          icon={<Activity size={18} />}
+        />
+        <StatCard
+          label={t("openNow")}
+          value={open}
+          tone={open ? "warn" : "default"}
+          icon={<CalendarDays size={18} />}
+        />
+      </div>
+      {loading ? (
+        <LoadingState label={t("loading")} />
+      ) : error ? (
+        <ErrorState
+          title={t("loadingError")}
+          message={error}
+          onRetry={load}
+          retryLabel={t("retry")}
+        />
+      ) : rows.length === 0 ? (
+        <EmptyState
+          title={t("noSessions")}
+          body={t("noSessionsBody")}
+          icon={<Activity size={26} />}
+        />
+      ) : (
+        <Panel>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t("startedAt")}</th>
+                  <th>{t("endedAt")}</th>
+                  <th>{t("duration")}</th>
+                  <th>{t("attendanceCount")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const start = r.started_at ? new Date(r.started_at) : null;
+                  const end = r.ended_at ? new Date(r.ended_at) : null;
+                  const mins =
+                    start && end
+                      ? Math.max(
+                          0,
+                          Math.round((end.getTime() - start.getTime()) / 60000),
+                        )
+                      : null;
+                  return (
+                    <tr key={r.id}>
+                      <td>{formatDateTime(r.started_at)}</td>
+                      <td>
+                        {r.ended_at ? (
+                          formatDateTime(r.ended_at)
+                        ) : (
+                          <Badge tone="warn">{t("openSession")}</Badge>
+                        )}
+                      </td>
+                      <td>
+                        {mins === null ? "-" : `${mins} ${t("minutes")}`}
+                      </td>
+                      <td>{counts[r.id] ?? 0}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
+    </>
+  );
+}
