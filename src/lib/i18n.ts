@@ -999,3 +999,77 @@ const classesExtras = {
 Object.assign(dict.ar as unknown as Record<string, string>, classesExtras.ar);
 Object.assign(dict.fr as unknown as Record<string, string>, classesExtras.fr);
 Object.assign(dict.en as unknown as Record<string, string>, classesExtras.en);
+
+const gapExtras = {
+  ar: {
+    saved: "تم الحفظ",
+    confirmDelete: "هل تريد الحذف نهائياً؟ لا يمكن التراجع.",
+    entryDate: "تاريخ الملاحظة",
+    saveChanges: "حفظ التعديلات",
+    notebookAutosave: "تُحفظ مسودتك محلياً على جهازك حتى تضغط حفظ.",
+    searchNotebook: "ابحث في دفترك (عنوان أو نص)",
+    clearFilters: "مسح التصفية",
+    entries: "ملاحظة",
+    lastEntry: "آخر ملاحظة:",
+    notebookEmpty: "دفترك فارغ",
+    notebookEmptyHint: "اكتب أول ملاحظة لك عن يوم العمل أو الحصص أو ملاحظاتك الشخصية.",
+    notebookPrivacy:
+      "هذا الدفتر خاص بك وحدك. لا يراه مدرب آخر ولا إدارة المؤسسة، والحماية مطبقة على مستوى قاعدة البيانات.",
+    noResults: "لا توجد نتائج مطابقة",
+    markRead: "تم الاطلاع",
+    readBy: "عدد المطّلعين",
+    seenByYou: "اطّلعت عليه",
+    noticesEmpty: "لا توجد تعاميم",
+    noticesEmptyHint: "ستظهر هنا تعاميم وإعلانات إدارة المؤسسة.",
+  },
+  fr: {
+    saved: "Enregistré",
+    confirmDelete: "Supprimer définitivement ? Cette action est irréversible.",
+    entryDate: "Date de la note",
+    saveChanges: "Enregistrer les modifications",
+    notebookAutosave:
+      "Votre brouillon est conservé localement sur cet appareil jusqu’à l’enregistrement.",
+    searchNotebook: "Rechercher dans votre carnet (titre ou contenu)",
+    clearFilters: "Effacer les filtres",
+    entries: "notes",
+    lastEntry: "Dernière note :",
+    notebookEmpty: "Votre carnet est vide",
+    notebookEmptyHint:
+      "Rédigez votre première note sur la journée, les séances ou vos observations.",
+    notebookPrivacy:
+      "Ce carnet est strictement personnel. Aucun autre entraîneur ni l’administration ne peut le consulter ; la protection est appliquée au niveau de la base de données.",
+    noResults: "Aucun résultat",
+    markRead: "Lu",
+    readBy: "Ont lu",
+    seenByYou: "Déjà lu",
+    noticesEmpty: "Aucune annonce",
+    noticesEmptyHint: "Les annonces de l’administration apparaîtront ici.",
+  },
+  en: {
+    saved: "Saved",
+    confirmDelete: "Delete permanently? This cannot be undone.",
+    entryDate: "Note date",
+    saveChanges: "Save changes",
+    notebookAutosave:
+      "Your draft is kept locally on this device until you save.",
+    searchNotebook: "Search your notebook (title or text)",
+    clearFilters: "Clear filters",
+    entries: "notes",
+    lastEntry: "Latest note:",
+    notebookEmpty: "Your notebook is empty",
+    notebookEmptyHint:
+      "Write your first note about the working day, sessions or observations.",
+    notebookPrivacy:
+      "This notebook is private to you. No other coach and no administrator can read it, and the restriction is enforced at database level.",
+    noResults: "No matching results",
+    markRead: "Mark as read",
+    readBy: "Read by",
+    seenByYou: "Read",
+    noticesEmpty: "No announcements",
+    noticesEmptyHint: "Institution announcements will appear here.",
+  },
+} as const;
+
+Object.assign(dict.ar as unknown as Record<string, string>, gapExtras.ar);
+Object.assign(dict.fr as unknown as Record<string, string>, gapExtras.fr);
+Object.assign(dict.en as unknown as Record<string, string>, gapExtras.en);
