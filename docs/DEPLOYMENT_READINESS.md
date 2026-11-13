@@ -145,3 +145,21 @@ exercised in this environment. Those remain unverified and are listed as such in
 `FINAL_TEST_REPORT.md`.
 
 **Explicit authorisation is still required before any deployment.**
+
+---
+
+## Round 14 update — review workflow (migration 0004)
+
+Adds one more prerequisite before the review cycle can be used end to end:
+
+| # | Prerequisite | Why |
+| --- | --- | --- |
+| 0 | Apply `0004_report_review_workflow.sql` | Without it, "request changes" violates the existing `status` CHECK, and notice audience/archive columns are missing |
+| 1 | Apply `0001`, `0002`, `0003` | Attendance sessions, draft-submission notification, notice read tracking |
+| 2 | One real account per role | Authenticated RLS/storage/Realtime verification is still outstanding |
+| 3 | Deploy target + env vars | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` only; never a service-role key |
+
+Code status after round 14: `npm test` 84/84 pass, `npm run build` pass, `npm run verify`
+pass, dependency scan 0 blocking findings. The application is code-complete for the
+requested scope; readiness is **conditional on the migrations and the authenticated
+verification pass**, not on further UI work.

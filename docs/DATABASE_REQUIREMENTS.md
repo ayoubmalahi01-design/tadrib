@@ -161,3 +161,36 @@ notification for draft-originated submissions is missing.
 - No table, column, policy, bucket or record was dropped or renamed.
 - No duplicate table or duplicate feature was introduced.
 - The existing Supabase project was not replaced.
+
+---
+
+## 7. Round 14 — migration 0004 (report review workflow)
+
+**Status: written, reviewed, NOT executed.** Additive and re-runnable.
+
+What it adds:
+
+| Object | Change |
+| --- | --- |
+| `public.daily_reports` | `submitted_at`, `changes_requested_at`, `review_note` columns |
+| `public.daily_reports` constraint | status domain widened to `draft, submitted, under_review, reviewed, needs_changes` |
+| `public.daily_reports` policy | `reports_update_own_draft`: coach updates only own row while `draft`/`needs_changes`, and may only write `draft`/`submitted` |
+| `public.notify_report_review()` + trigger | notifies the coach when a report becomes `reviewed` or `needs_changes` |
+| `public.admin_notices` | `audience` (`all`/`coaches`/`admins`), `archived_at`, `attachment_path` |
+| indexes | `reports_status_idx`, `notices_live_idx` |
+
+Rows are preserved: the migration only adds columns and replaces a CHECK constraint.
+A commented rollback block is included at the end of the file.
+
+**Why it matters:** without 0004, the "request changes" action fails on the existing
+`daily_reports_status_check`, and notices cannot be targeted or archived.
+
+Execution is still waiting for explicit approval; no SQL has been run against the
+production database.
+
+## 8. Verification checklist after executing migrations
+
+1. `select conname, pg_get_constraintdef(oid) from pg_constraint where conname = 'daily_reports_status_check';`
+2. Insert a draft, submit it, set `needs_changes`, then resubmit — confirm the row id never changes.
+3. Confirm `select count(*) from public.notifications where notification_type = 'report';` grows once per review transition.
+4. Confirm an older report with `is_finalized = true` still reads as `submitted` in the UI.
