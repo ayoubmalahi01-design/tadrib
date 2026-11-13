@@ -1,5 +1,16 @@
 # THE TRAINERS (تدرّب) — Implementation Changelog
 
+## Round 10 — non-blocking notifications (F13) and dead imports (F18)
+
+- New `src/lib/toast.ts`: `notify(message)` plus `setToastListener(fn)`. The shell registers a listener; every failure and confirmation now renders as a dismissible, `aria-live="polite"` banner instead of a blocking `window.alert`. When no listener is mounted the message is logged, so the channel can never throw.
+- `src/App.tsx`: all **50** `alert(...)` call sites were converted to `notify(...)` — `grep -c` earlier reported 28 because it counts lines, not occurrences. The banner auto-dismisses after six seconds and can be tapped to dismiss immediately. Errors no longer interrupt a coach mid-attendance entry on a phone.
+- `src/App.tsx` imports: removed three genuinely dead icon imports (`BookOpen`, `FileText`, `Clock3`). Five other candidates (`Home`, `CalendarDays`, `History`, `HeartPulse`, `SettingsIcon`) looked unused in JSX but are referenced by the `navItems` array, so they were kept — deleting them would have broken navigation.
+- `src/styles.css`: `.toast` — fixed above the safe area on phones, anchored bottom-end on desktop, high contrast.
+- `tests/toast.test.ts`: four tests covering delivery, ignoring empty/null messages, unbinding, and a stale unbind not detaching a newer listener.
+- Verified: `npm test` **31/31**, `npm run build` OK, `npm run verify` 28 checks.
+- Not verified: the banner was not observed in a browser session against live data; behaviour is covered by the unit tests plus the typecheck.
+
+
 ## Round 8 — group member management (F8/D15)
 
 - `src/App.tsx` (Messages): added `loadConvMembers()`, `addMember()` and `removeMember()` over `conversation_members`. Group conversations now expose a "group members" button in the chat header that opens a modal listing current members, letting the creator or an institution administrator remove a member (the creator is never offered for removal) and add any active institution member who is not already in the conversation.

@@ -180,3 +180,13 @@ Password reset is implemented against the Supabase Auth API but was **not** exec
 | Project verification | `npm run verify` | PASS — 28 assertions |
 
 Member add/remove calls `conversation_members` directly and relies on the RLS policies for authorisation. Not executed against a live database in this environment.
+
+## Round 10 addendum — notification channel
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Unit tests | `npm test` | PASS — 31/31 |
+| Typecheck + build | `npm run build` | PASS |
+| Project verification | `npm run verify` | PASS — 28 assertions |
+
+`window.alert` is no longer used anywhere in the client (0 occurrences). The toast channel is unit-tested; it was not exercised in a browser against a live Supabase session.
