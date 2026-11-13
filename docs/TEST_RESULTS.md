@@ -61,7 +61,20 @@ preset `security` (OSV-Scanner): 162 حزمة، 0 حظر، تنبيهان متو
 
 لم تُعدّ أي من هذه ناجحة، ولم تُخفَ أي نتيجة فاشلة.
 
-## 6. اختبار حزمة ZIP
+## 6. اختبار حزمة ZIP (مُنفَّذ فعلياً)
 
-يُنفَّذ في مجلد مؤقت مستقل: فك الضغط، `npm ci`، `npm test`، `npm run build`، والتحقق
-من عدم وجود `.env` أو مفاتيح. النتيجة تُسجَّل في نهاية `CHANGELOG.md`.
+`THE-TRAINERS-FINAL.zip` — 72 مدخلاً، 183 كيلوبايت، بلا `node_modules` و`.git` و`dist`
+وبلا ملفات `.env`.
+
+| الخطوة | النتيجة |
+| --- | --- |
+| فك الضغط في `/tmp/zipcheck` | 72 ملفاً |
+| `npm ci` | نجح — 86 حزمة في 3 ثوانٍ |
+| `npm test` | **84 نجاحاً، 0 فشل** |
+| `npm run build` | **نجح** — 1635 وحدة، 4.02 ثانية |
+| فحص الأسرار | لا يوجد أي توكن JWT ولا ملف `.env` |
+
+المطابقات الخمس الوحيدة لكلمة `service_role` هي **نصوص توثيقية** تنص على عدم
+استخدامه في المتصفح (`README.md`, `cloudflare/DEPLOYMENT.md`, `docs/AUDIT_REPORT.md`,
+`supabase/THE_TRAINERS_SETUP.sql`, `supabase/functions/invite-user/index.ts`) — وليست
+مفاتيح.
