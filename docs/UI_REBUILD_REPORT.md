@@ -87,11 +87,37 @@ if (!profile) return null;   // ← المستند كله يصبح فارغاً
 3. الموافقة على النشر عند الجاهزية.
 
 ---
-
 ## 6. مرجع Git
 
-- آخر إصدار قبل هذه الجولة: `c5898aa`
-- الملفات المعدّلة في هذه الجولة:
-```
+**آخر إصدار قبل الجولات:** `c5898aa`
+
+**إحصاء التغييرات منذ `c5898aa`:** 2 ملفاً مُضافاً · 10 معدّلاً · 0 محذوفاً
+
+**آخر الالتزامات على الفرع:**
 
 ```
+1dd5a2d AppJet agent update
+4d8dcd3 AppJet agent update
+4f27c29 AppJet agent update
+a05c799 AppJet agent update
+1db6302 AppJet agent update
+3d61020 AppJet agent update (2 files)
+```
+
+**الملفات المُضافة:**
+
+- `docs/UI_REBUILD_REPORT.md`
+- `src/components/ui.tsx`
+
+**الملفات المعدّلة:**
+
+- `src/App.tsx`
+- `src/components/ui.tsx`
+- `src/lib/i18n.ts`
+- `src/lib/i18n.ts`
+- `src/App.tsx`
+- `src/styles.css`
+- `src/lib/i18n.ts`
+- `src/App.tsx`
+- `src/App.tsx`
+- `src/styles.css`
