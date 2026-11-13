@@ -36,3 +36,5 @@
 .load-older{display:block;margin:0 auto 10px;font-size:.82rem}
 .member-list{display:flex;flex-direction:column;gap:6px;max-height:42vh;overflow:auto;margin:8px 0}
 .members-btn{margin-inline-start:auto;font-size:.8rem;display:inline-flex;align-items:center;gap:6px}
+.toast{position:fixed;inset-inline:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:80;margin-inline:auto;max-width:520px;background:#111827;color:#fff;border-radius:12px;padding:12px 16px;font-size:.9rem;line-height:1.45;box-shadow:0 10px 30px rgba(0,0,0,.28);cursor:pointer;text-align:start}
+@media(min-width:720px){.toast{inset-inline:auto;inset-inline-end:20px;max-width:420px}}
