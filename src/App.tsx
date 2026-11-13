@@ -334,6 +334,7 @@ export default function App() {
         ["/profile", ShieldCheck, "profile"],
         ...(admin
           ? [
+              ["/classes", GraduationCap, "classes"],
               ["/team", UserPlus, "team"],
               ["/medical", HeartPulse, "medical"],
               ["/settings", SettingsIcon, "settings"],
@@ -470,6 +471,12 @@ export default function App() {
               path="/messages"
               element={
                 !owner ? <Messages profile={profile} t={t} /> : <Denied t={t} />
+              }
+            />
+            <Route
+              path="/classes"
+              element={
+                admin ? <Classes profile={profile} t={t} /> : <Denied t={t} />
               }
             />
             <Route
@@ -813,12 +820,10 @@ function ShiftCard({ profile, t }: { profile: Profile; t: T }) {
           .from("coach_shifts")
           .update({ ended_at: new Date().toISOString() })
           .eq("id", active.id)
-      : await supabase
-          .from("coach_shifts")
-          .insert({
-            coach_id: profile.id,
-            institution_id: profile.institution_id,
-          });
+      : await supabase.from("coach_shifts").insert({
+          coach_id: profile.id,
+          institution_id: profile.institution_id,
+        });
     if (result.error) notify(result.error.message);
     await refresh();
     setLoading(false);
@@ -926,15 +931,13 @@ function Students({ profile, t }: { profile: Profile; t: T }) {
   async function saveNote(e: FormEvent) {
     e.preventDefault();
     if (!noteStudent) return;
-    const { error } = await supabase
-      .from("student_notes")
-      .insert({
-        institution_id: profile.institution_id,
-        student_id: noteStudent.id,
-        author_id: profile.id,
-        body: note,
-        note_type: "general",
-      });
+    const { error } = await supabase.from("student_notes").insert({
+      institution_id: profile.institution_id,
+      student_id: noteStudent.id,
+      author_id: profile.id,
+      body: note,
+      note_type: "general",
+    });
     if (error) notify(error.message);
     else {
       setNote("");
@@ -1694,14 +1697,12 @@ function Notebook({ profile, t }: { profile: Profile; t: T }) {
   }, [profile.id]);
   async function add(e: FormEvent) {
     e.preventDefault();
-    const { error } = await supabase
-      .from("coach_notebooks")
-      .insert({
-        institution_id: profile.institution_id,
-        coach_id: profile.id,
-        title,
-        body,
-      });
+    const { error } = await supabase.from("coach_notebooks").insert({
+      institution_id: profile.institution_id,
+      coach_id: profile.id,
+      title,
+      body,
+    });
     if (error) notify(error.message);
     else {
       setTitle("");
@@ -1764,14 +1765,12 @@ function Notices({ profile, t }: { profile: Profile; t: T }) {
   }, []);
   async function save(e: FormEvent) {
     e.preventDefault();
-    const { error } = await supabase
-      .from("admin_notices")
-      .insert({
-        title,
-        body,
-        author_id: profile.id,
-        institution_id: profile.institution_id,
-      });
+    const { error } = await supabase.from("admin_notices").insert({
+      title,
+      body,
+      author_id: profile.id,
+      institution_id: profile.institution_id,
+    });
     if (error) notify(error.message);
     else {
       setShow(false);
@@ -2263,16 +2262,14 @@ function Messages({ profile, t }: { profile: Profile; t: T }) {
           ? "audio"
           : "file";
     }
-    const { error } = await supabase
-      .from("messages")
-      .insert({
-        sender_id: profile.id,
-        institution_id: profile.institution_id,
-        conversation_id: current.id,
-        body: body.trim() || null,
-        message_type,
-        media_path,
-      });
+    const { error } = await supabase.from("messages").insert({
+      sender_id: profile.id,
+      institution_id: profile.institution_id,
+      conversation_id: current.id,
+      body: body.trim() || null,
+      message_type,
+      media_path,
+    });
     if (error) notify(error.message);
     else {
       setBody("");
@@ -2913,16 +2910,14 @@ function Medical({ profile, t }: { profile: Profile; t: T }) {
         return;
       }
     }
-    const { error } = await supabase
-      .from("student_medical_records")
-      .insert({
-        institution_id: profile.institution_id,
-        student_id: student,
-        record_type: kind,
-        details,
-        created_by: profile.id,
-        attachment_path,
-      });
+    const { error } = await supabase.from("student_medical_records").insert({
+      institution_id: profile.institution_id,
+      student_id: student,
+      record_type: kind,
+      details,
+      created_by: profile.id,
+      attachment_path,
+    });
     if (error) notify(error.message);
     else {
       setDetails("");
@@ -3460,9 +3455,7 @@ function Sessions({ profile, t }: { profile: Profile; t: T }) {
                           <Badge tone="warn">{t("openSession")}</Badge>
                         )}
                       </td>
-                      <td>
-                        {mins === null ? "-" : `${mins} ${t("minutes")}`}
-                      </td>
+                      <td>{mins === null ? "-" : `${mins} ${t("minutes")}`}</td>
                       <td>{counts[r.id] ?? 0}</td>
                     </tr>
                   );
@@ -3471,6 +3464,272 @@ function Sessions({ profile, t }: { profile: Profile; t: T }) {
             </table>
           </div>
         </Panel>
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Classes & groups: real CRUD over public.classes (the table that
+ * students.class_id references). Admin-scoped by RLS.
+ * ------------------------------------------------------------------ */
+function Classes({ profile, t }: { profile: Profile; t: T }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [year, setYear] = useState("");
+  const [desc, setDesc] = useState("");
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    const { data, error: err } = await supabase
+      .from("classes")
+      .select("id,name,academic_year,description,created_at")
+      .order("name", { ascending: true });
+    if (err) {
+      setError(err.message);
+      setLoading(false);
+      return;
+    }
+    setRows(data || []);
+    const { data: st } = await supabase
+      .from("students")
+      .select("class_id")
+      .not("class_id", "is", null);
+    if (st) {
+      const map: Record<string, number> = {};
+      (st as any[]).forEach((r) => {
+        if (r.class_id) map[r.class_id] = (map[r.class_id] || 0) + 1;
+      });
+      setCounts(map);
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  function startAdd() {
+    setEditId(null);
+    setName("");
+    setYear("");
+    setDesc("");
+    setFormError("");
+    setOpen(true);
+  }
+
+  function startEdit(r: any) {
+    setEditId(r.id);
+    setName(r.name || "");
+    setYear(r.academic_year || "");
+    setDesc(r.description || "");
+    setFormError("");
+    setOpen(true);
+  }
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) {
+      setFormError(t("fieldRequired"));
+      return;
+    }
+    if (!profile.institution_id) {
+      setFormError(t("noInstitutionScope"));
+      return;
+    }
+    setSaving(true);
+    setFormError("");
+    const payload = {
+      name: name.trim(),
+      academic_year: year.trim() || null,
+      description: desc.trim() || null,
+    };
+    const res = editId
+      ? await supabase.from("classes").update(payload).eq("id", editId)
+      : await supabase
+          .from("classes")
+          .insert({ ...payload, institution_id: profile.institution_id });
+    setSaving(false);
+    if (res.error) {
+      setFormError(res.error.message);
+      return;
+    }
+    setOpen(false);
+    notify(t("classSaved"));
+    load();
+  }
+
+  async function remove(r: any) {
+    if (!window.confirm(t("deleteClassConfirm"))) return;
+    const { error: err } = await supabase
+      .from("classes")
+      .delete()
+      .eq("id", r.id);
+    if (err) notify(err.message);
+    else {
+      notify(t("classDeleted"));
+      load();
+    }
+  }
+
+  const totalStudents = Object.values(counts).reduce((a, b) => a + b, 0);
+
+  return (
+    <>
+      <PageHeader
+        title={t("classes")}
+        subtitle={t("classesSubtitle")}
+        icon={<GraduationCap size={20} />}
+        actions={
+          <button className="primary" onClick={startAdd}>
+            <Plus size={16} /> {t("addClass")}
+          </button>
+        }
+      />
+      <div className="ui-stats">
+        <StatCard
+          label={t("totalClasses")}
+          value={rows.length}
+          tone="accent"
+          icon={<GraduationCap size={18} />}
+        />
+        <StatCard
+          label={t("studentsCount")}
+          value={totalStudents}
+          icon={<Users size={18} />}
+        />
+      </div>
+      {loading ? (
+        <LoadingState label={t("loading")} />
+      ) : error ? (
+        <ErrorState
+          title={t("loadingError")}
+          message={error}
+          onRetry={load}
+          retryLabel={t("retry")}
+        />
+      ) : rows.length === 0 ? (
+        <EmptyState
+          title={t("noClasses")}
+          body={t("noClassesBody")}
+          icon={<GraduationCap size={26} />}
+          action={
+            <button className="primary" onClick={startAdd}>
+              {t("addClass")}
+            </button>
+          }
+        />
+      ) : (
+        <Panel>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t("className")}</th>
+                  <th>{t("academicYear")}</th>
+                  <th>{t("studentsCount")}</th>
+                  <th>{t("actions")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <strong>{r.name}</strong>
+                      {r.description && <small> — {r.description}</small>}
+                    </td>
+                    <td>{r.academic_year || "-"}</td>
+                    <td>{counts[r.id] || 0}</td>
+                    <td>
+                      <div className="ui-inline">
+                        <button
+                          className="secondary"
+                          onClick={() => startEdit(r)}
+                        >
+                          <Pencil size={14} /> {t("edit")}
+                        </button>
+                        <button className="secondary" onClick={() => remove(r)}>
+                          <Archive size={14} /> {t("delete")}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
+
+      {open && (
+        <div className="ui-modal-backdrop" onClick={() => setOpen(false)}>
+          <form
+            className="ui-modal"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={save}
+          >
+            <div className="ui-modal-head">
+              <h2>{editId ? t("editClass") : t("addClass")}</h2>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setOpen(false)}
+                aria-label={t("close")}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="ui-modal-body">
+              <div className="ui-form" style={{ maxWidth: "100%" }}>
+                <label className="ui-field">
+                  <span className="ui-field-label">{t("className")}</span>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </label>
+                <label className="ui-field">
+                  <span className="ui-field-label">{t("academicYear")}</span>
+                  <input
+                    value={year}
+                    onChange={(e) => setYear(e.target.value)}
+                    placeholder="2025/2026"
+                  />
+                </label>
+                <label className="ui-field">
+                  <span className="ui-field-label">{t("description")}</span>
+                  <textarea
+                    rows={3}
+                    value={desc}
+                    onChange={(e) => setDesc(e.target.value)}
+                  />
+                </label>
+                {formError && <p className="ui-field-error">{formError}</p>}
+              </div>
+            </div>
+            <div className="ui-modal-foot">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setOpen(false)}
+              >
+                {t("cancel")}
+              </button>
+              <button className="primary" disabled={saving}>
+                {saving ? "..." : t("save")}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
     </>
   );

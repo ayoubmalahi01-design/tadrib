@@ -197,7 +197,12 @@ export function Modal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="ui-modal" role="dialog" aria-modal="true" aria-label={title}>
+      <div
+        className="ui-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
         <div className="ui-modal-head">
           <h2>{title}</h2>
           <button
