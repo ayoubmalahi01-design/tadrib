@@ -1529,46 +1529,146 @@ function Reports({ profile, t }: { profile: Profile; t: T }) {
 function Notebook({ profile, t }: { profile: Profile; t: T }) {
   const [items, setItems] = useState<any[]>([]),
     [title, setTitle] = useState(""),
-    [body, setBody] = useState("");
+    [body, setBody] = useState(""),
+    [entryDate, setEntryDate] = useState(localDate()),
+    [editingId, setEditingId] = useState<string | null>(null),
+    [query, setQuery] = useState(""),
+    [from, setFrom] = useState(""),
+    [to, setTo] = useState(""),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const draftKey = notebookDraftKey(profile.id);
   async function load() {
-    const { data } = await supabase
+    setLoading(true);
+    setError("");
+    const { data, error: err } = await supabase
       .from("coach_notebooks")
       .select("*")
       .eq("coach_id", profile.id)
       .order("entry_date", { ascending: false });
-    setItems(data || []);
+    if (err) setError(err.message);
+    setItems((data || []).filter((n: any) => belongsToCoach(n, profile.id)));
+    setLoading(false);
   }
   useEffect(() => {
     load();
   }, [profile.id]);
-  async function add(e: FormEvent) {
-    e.preventDefault();
-    const { error } = await supabase.from("coach_notebooks").insert({
-      institution_id: profile.institution_id,
-      coach_id: profile.id,
-      title,
-      body,
-    });
-    if (error) notify(error.message);
-    else {
-      setTitle("");
-      setBody("");
-      load();
+  useEffect(() => {
+    if (!draftKey) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (isNotebookDraftUsable(parsed)) {
+        setTitle(parsed.title || "");
+        setBody(parsed.body || "");
+        setEditingId(parsed.id || null);
+      }
+    } catch {
+      localStorage.removeItem(draftKey);
     }
+  }, [draftKey]);
+  useEffect(() => {
+    if (!draftKey) return;
+    if (!title.trim() && !body.trim()) {
+      localStorage.removeItem(draftKey);
+      return;
+    }
+    localStorage.setItem(
+      draftKey,
+      JSON.stringify({ title, body, id: editingId }),
+    );
+  }, [draftKey, title, body, editingId]);
+  function reset() {
+    setTitle("");
+    setBody("");
+    setEditingId(null);
+    setEntryDate(localDate());
+    if (draftKey) localStorage.removeItem(draftKey);
   }
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    const payload = {
+      title: title.trim(),
+      body: body.trim(),
+      entry_date: entryDate,
+    };
+    const res = editingId
+      ? await supabase
+          .from("coach_notebooks")
+          .update(payload)
+          .eq("id", editingId)
+          .eq("coach_id", profile.id)
+      : await supabase.from("coach_notebooks").insert({
+          ...payload,
+          institution_id: profile.institution_id,
+          coach_id: profile.id,
+        });
+    setBusy(false);
+    if (res.error) {
+      notify(res.error.message);
+      return;
+    }
+    notify(t("saved"));
+    reset();
+    load();
+  }
+  async function remove(id: string) {
+    if (!window.confirm(t("confirmDelete"))) return;
+    const { error: err } = await supabase
+      .from("coach_notebooks")
+      .delete()
+      .eq("id", id)
+      .eq("coach_id", profile.id);
+    if (err) {
+      notify(err.message);
+      return;
+    }
+    if (editingId === id) reset();
+    load();
+  }
+  function startEdit(n: any) {
+    setEditingId(n.id);
+    setTitle(n.title || "");
+    setBody(n.body || "");
+    setEntryDate(String(n.entry_date || localDate()).slice(0, 10));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  const visible = useMemo(
+    () => filterNotebook(items, { query, from, to }),
+    [items, query, from, to],
+  );
+  const summary = useMemo(() => notebookSummary(items), [items]);
   return (
     <>
       <Heading title={t("notebook")} subtitle={t("privateNote")} />
+      <div className="private-banner">
+        <Lock size={18} />
+        <span>{t("notebookPrivacy")}</span>
+      </div>
       <section className="panel">
-        <form onSubmit={add}>
-          <label>
-            {t("title")}
-            <input
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </label>
+        <form onSubmit={save}>
+          <div className="form-row">
+            <label>
+              {t("title")}
+              <input
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </label>
+            <label>
+              {t("entryDate")}
+              <input
+                type="date"
+                value={entryDate}
+                onChange={(e) => setEntryDate(e.target.value)}
+              />
+            </label>
+          </div>
           <label>
             {t("notes")}
             <DictateButton onText={setBody} />
@@ -1579,16 +1679,89 @@ function Notebook({ profile, t }: { profile: Profile; t: T }) {
               onChange={(e) => setBody(e.target.value)}
             />
           </label>
-          <button className="primary">{t("add")}</button>
+          <div className="modal-actions">
+            {editingId && (
+              <button type="button" className="secondary" onClick={reset}>
+                {t("cancel")}
+              </button>
+            )}
+            <button className="primary" disabled={busy}>
+              {editingId ? t("saveChanges") : t("add")}
+            </button>
+          </div>
+          <small className="muted">{t("notebookAutosave")}</small>
         </form>
       </section>
-      {items.map((n) => (
-        <article className="panel notice" key={n.id}>
-          <h3>{n.title}</h3>
-          <p>{n.body}</p>
-          <small>{n.entry_date}</small>
-        </article>
-      ))}
+      <div className="filter-bar">
+        <div className="searchbar">
+          <Search size={18} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("searchNotebook")}
+          />
+        </div>
+        <label>
+          {t("fromDate")}
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+        </label>
+        <label>
+          {t("toDate")}
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+          />
+        </label>
+        {(query || from || to) && (
+          <button
+            className="secondary"
+            onClick={() => {
+              setQuery("");
+              setFrom("");
+              setTo("");
+            }}
+          >
+            {t("clearFilters")}
+          </button>
+        )}
+      </div>
+      <p className="muted">
+        {summary.total} {t("entries")}
+        {summary.lastDay ? ` · ${t("lastEntry")} ${summary.lastDay}` : ""}
+      </p>
+      {loading ? (
+        <LoadingState label={t("loading")} />
+      ) : error ? (
+        <ErrorState message={error} retry={t("retry")} onRetry={load} />
+      ) : visible.length === 0 ? (
+        <EmptyState
+          title={items.length ? t("noResults") : t("notebookEmpty")}
+          hint={items.length ? t("clearFilters") : t("notebookEmptyHint")}
+        />
+      ) : (
+        visible.map((n) => (
+          <article className="panel notice" key={n.id}>
+            <div className="notice-head">
+              <h3>{n.title}</h3>
+              <small>{n.entry_date}</small>
+            </div>
+            <p className="note-body">{n.body}</p>
+            <div className="modal-actions">
+              <button className="secondary" onClick={() => startEdit(n)}>
+                <Pencil size={16} /> {t("edit")}
+              </button>
+              <button className="danger" onClick={() => remove(n.id)}>
+                <Trash2 size={16} /> {t("delete")}
+              </button>
+            </div>
+          </article>
+        ))
+      )}
     </>
   );
 }
