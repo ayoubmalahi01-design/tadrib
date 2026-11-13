@@ -69,14 +69,18 @@ export async function loadAttendance(
  * Save attendance for the current session.
  * Retries the pre-migration shape when `session_key` is unavailable, so an
  * un-migrated database keeps working exactly as before.
+ *
+ * `sessionKeyOverride` lets the caller resolve the session once (for example to
+ * warn the coach before saving) instead of querying coach_shifts twice.
  */
 export async function saveAttendance(
   rows: AttendanceInput[],
   coachId: string,
+  sessionKeyOverride?: string,
 ): Promise<{ error: string | null; sessionKey: string; migrationRequired: boolean }> {
   if (!rows.length) return { error: null, sessionKey: NO_SESSION, migrationRequired: false }
 
-  const sessionKey = await resolveSessionKey(coachId)
+  const sessionKey = sessionKeyOverride ?? (await resolveSessionKey(coachId))
   const withKey = rows.map((r) => ({ ...r, session_key: sessionKey }))
 
   const first = await supabase
