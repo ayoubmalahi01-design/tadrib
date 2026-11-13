@@ -129,6 +129,32 @@ These are the server-side enforcement points. The client hides buttons, but
 - No other additive migration was identified as necessary for the defects fixed
   in this round.
 
+### Migration 0002 — notify administrators when a saved draft is submitted (additive, pending execution)
+
+File: `supabase/migrations/0002_report_draft_submit_notify.sql`
+
+Why it is needed: `THE_TRAINERS_SETUP.sql` installs
+
+```sql
+create trigger daily_report_notify after insert on public.daily_reports
+  for each row when (new.is_finalized = true)
+  execute function public.notify_submitted_report();
+```
+
+That trigger fires on INSERT only. The D8 draft workflow lets a coach save a report as
+`status='draft', is_finalized=false` and submit it later, which is an **UPDATE** — so the
+final submission created no administrator notification at all.
+
+What it adds: one trigger on the `false → true` transition of `is_finalized` that reuses
+the existing `notify_submitted_report()` function. No table, column, policy or bucket is
+created, altered or dropped, and no data is touched, so it is safe on a live database and
+safe to re-run.
+
+Rollback: `drop trigger if exists daily_report_notify_update on public.daily_reports;`
+
+Until it is applied, everything else about drafts works normally; only the administrator
+notification for draft-originated submissions is missing.
+
 ## 6. Rules that were respected
 
 - No SQL was executed against any database.
