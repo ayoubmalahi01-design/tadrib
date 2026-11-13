@@ -190,3 +190,13 @@ Member add/remove calls `conversation_members` directly and relies on the RLS po
 | Project verification | `npm run verify` | PASS — 28 assertions |
 
 `window.alert` is no longer used anywhere in the client (0 occurrences). The toast channel is unit-tested; it was not exercised in a browser against a live Supabase session.
+
+## Round 11 addendum — build output and font dependency
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Unit tests | `npm test` | PASS — 31/31 |
+| Typecheck + build | `npm run build` | PASS — 4 chunks: index 83.87 kB, react-vendor 164.45 kB, supabase 214.35 kB, icons 13.88 kB |
+| Project verification | `npm run verify` | PASS — 28 assertions |
+
+`src/styles.css` and the CSP in `public/_headers` contain no external font origin. Font binaries are **not** vendored: the download was blocked in this sandbox, so the system Arabic-capable stack is used instead. No browser session was run against live data this round.

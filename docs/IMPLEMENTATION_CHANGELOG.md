@@ -1,5 +1,13 @@
 # THE TRAINERS (تدرّب) — Implementation Changelog
 
+## Round 11 — bundle splitting (F12) and no third-party fonts (F15)
+
+- `vite.config.ts`: added `manualChunks` splitting `react-vendor` (react, react-dom, react-router-dom), `supabase` (@supabase/supabase-js) and `icons` (lucide-react) out of the entry bundle. Same build before/after: **477 kB (135 kB gzip) in one file** became `index 83.9 kB (23.6 gzip)` + `react-vendor 164.5 kB (53.8)` + `supabase 214.4 kB (55.5)` + `icons 13.9 kB (3.4)`. Vendor code is now cached across releases instead of re-downloaded on every deploy.
+- `src/styles.css`: removed the `@import url('https://fonts.googleapis.com/...')` for IBM Plex Sans Arabic and Inter and installed a native Arabic-capable stack (`system-ui, -apple-system, Segoe UI, Roboto, Noto Sans Arabic, Noto Kufi Arabic, IBM Plex Sans Arabic, Inter, Tahoma, Arial`). Arabic, French and English keep full glyph coverage, first paint no longer waits on a third-party origin, and offline rendering works.
+- `public/_headers`: CSP tightened — `style-src 'self' 'unsafe-inline'` and `font-src 'self' data:` no longer permit `fonts.googleapis.com` / `fonts.gstatic.com`.
+- Honest limitation: the audit item asked for **self-hosted font files**. Downloading the woff2 binaries was blocked by the sandbox's network guard, so they are not vendored. The third-party dependency itself is gone, which removed the real risk (privacy leak, extra CSP origin, offline fallback). If the owner wants IBM Plex/Inter exactly, drop the woff2 files into `public/fonts` and reference them with `@font-face`.
+- Verified: `npm test` **31/31**, `npm run build` OK (four chunks listed above), `npm run verify` 28 checks.
+
 ## Round 10 — non-blocking notifications (F13) and dead imports (F18)
 
 - New `src/lib/toast.ts`: `notify(message)` plus `setToastListener(fn)`. The shell registers a listener; every failure and confirmation now renders as a dismissible, `aria-live="polite"` banner instead of a blocking `window.alert`. When no listener is mounted the message is logged, so the channel can never throw.
@@ -10,6 +18,13 @@
 - Verified: `npm test` **31/31**, `npm run build` OK, `npm run verify` 28 checks.
 - Not verified: the banner was not observed in a browser session against live data; behaviour is covered by the unit tests plus the typecheck.
 
+
+## Round 9 — locale-aware dates (F19)
+
+- `src/lib/i18n.ts`: added `setDateLocale(lang)`, `formatDateTime(value)` and `formatTime(value)` built on `Intl.DateTimeFormat` with the active locale (`ar` / `fr` / `en`), falling back to the raw string when a value cannot be parsed.
+- `src/App.tsx`: report, attendance, message and notification timestamps now render through these helpers instead of `new Date(...).toLocaleString()` with no locale argument, which previously produced English, month-first output inside the Arabic RTL interface.
+- `tests/i18n.test.ts`: regression tests pin the three locales and the unparsable-input fallback.
+- Verified: `npm test` 27/27 at that point, `npm run build` OK, `npm run verify` 28 checks.
 
 ## Round 8 — group member management (F8/D15)
 
