@@ -46,6 +46,7 @@ export interface ReportDocInput {
     notes?: string;
     attendance?: string;
     review?: string;
+    reviewNote?: string;
     reviewedBy?: string;
     reviewedAt?: string;
     present?: string;
