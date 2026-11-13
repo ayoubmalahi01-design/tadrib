@@ -18,7 +18,9 @@ export type AttendanceStatus =
   | 'present' | 'absent' | 'late' | 'excused' | 'permission' | 'medical_exemption'
 
 export type AttendanceInput = {
-  institution_id: string
+  // Nullable: the platform owner has no institution, and RLS (not the client)
+  // is what actually decides whether a write is allowed.
+  institution_id: string | null
   student_id: string
   coach_id: string
   session_date: string
@@ -137,7 +139,7 @@ export function buildAttendanceRows(
   students: { id: string }[],
   status: Record<string, string>,
   reasons: Record<string, string>,
-  base: { institution_id: string; coach_id: string; session_date: string },
+  base: { institution_id: string | null; coach_id: string; session_date: string },
 ): AttendanceInput[] {
   const seen = new Set<string>()
   const rows: AttendanceInput[] = []
