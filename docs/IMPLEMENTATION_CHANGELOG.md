@@ -1,5 +1,20 @@
 # THE TRAINERS (تدرّب) — Implementation Changelog
 
+## Round 12 — report drafts (D8) and notification delivery (D19)
+
+Daily reports were previously all-or-nothing: closing the modal, reloading the tab or losing signal discarded every typed observation, and the only write path was `status:'submitted'`. The audit asked for create → save draft → edit draft → submit.
+
+- New `src/lib/report-draft.ts`: a versioned, per-user, expiring local snapshot (`tt.report-draft.<userId>`, 7-day TTL). `saveReportDraft` / `loadReportDraft` / `clearReportDraft` / `hasDraftContent` never throw when storage is missing or full, sanitise counts to non-negative integers, reject corrupt JSON, foreign versions and future timestamps, and key everything by user id so a shared tablet cannot leak one coach's draft to another.
+- `src/App.tsx` (Reports): the form autosaves on every change; reopening it restores the snapshot and says so (`draftRestored`). A new **Save draft** button writes a real `daily_reports` row with `status:'draft', is_finalized:false` and remembers its id, so repeated saves update that row instead of duplicating it. Draft rows now show a **Continue draft** action for the owning coach, which reloads counts and notes for editing. Submitting converts the same row to `submitted`/`is_finalized:true` and clears the local snapshot. Authorisation is unchanged and server-side: `reports_insert_own` for the insert, `reports_update_own_draft` for the draft update, and `lock_final_report` still rejects any edit once finalized.
+- New `src/lib/push-notify.ts`: `pushNotification` shows an OS notification only when the API exists, permission is `granted`, the tab is hidden and the title is non-empty; `pushBlockedReason` reports why not; `requestPushPermission` wraps the browser prompt. All rules are injectable, so they are unit tested without a browser.
+- `src/App.tsx` (Notifications): the Realtime `INSERT` handler now delivers a system notification for the new row, and an **Enable notifications** button appears while permission is still `default`, reporting the outcome as a toast.
+- `src/App.tsx` (Modal): the close button's `aria-label`/`title` was the hard-coded English `"Close"`; it now takes a `closeLabel` prop (Reports passes `t('close')`).
+- `src/lib/i18n.ts`: `saveDraft`, `draftSaved`, `draftRestored`, `continueDraft`, `enableNotifications`, `notificationsOn`, `notificationsBlocked`, `close` added in ar/fr/en.
+- `supabase/migrations/0002_report_draft_submit_notify.sql` (additive, **not executed**): the existing notification trigger fires `AFTER INSERT ... WHEN new.is_finalized`, so submitting a *saved draft* — an UPDATE — notified nobody. The migration adds one trigger on the `false → true` transition of `is_finalized`, reusing `notify_submitted_report()`; it creates no table, column or policy and is re-runnable.
+- `tests/report-draft.test.ts` (10) and `tests/push-notify.test.ts` (7): per-user scoping, TTL expiry, corrupt/foreign snapshots, count sanitising, unavailable storage, delivery gating and the empty-title case.
+- Verified: `npm test` **47/47**, `npm run build` OK (entry 88.8 kB), `npm run verify` 28 checks.
+- Not verified: no live database, so draft insert/update against real RLS and the system notification popup were not exercised end to end; the logic is unit-tested and the policies were read from the schema.
+
 ## Round 11 — bundle splitting (F12) and no third-party fonts (F15)
 
 - `vite.config.ts`: added `manualChunks` splitting `react-vendor` (react, react-dom, react-router-dom), `supabase` (@supabase/supabase-js) and `icons` (lucide-react) out of the entry bundle. Same build before/after: **477 kB (135 kB gzip) in one file** became `index 83.9 kB (23.6 gzip)` + `react-vendor 164.5 kB (53.8)` + `supabase 214.4 kB (55.5)` + `icons 13.9 kB (3.4)`. Vendor code is now cached across releases instead of re-downloaded on every deploy.

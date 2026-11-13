@@ -200,3 +200,13 @@ Member add/remove calls `conversation_members` directly and relies on the RLS po
 | Project verification | `npm run verify` | PASS — 28 assertions |
 
 `src/styles.css` and the CSP in `public/_headers` contain no external font origin. Font binaries are **not** vendored: the download was blocked in this sandbox, so the system Arabic-capable stack is used instead. No browser session was run against live data this round.
+
+## Round 12 addendum — report drafts and notification delivery
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Unit tests | `npm test` | PASS — 47/47 (10 new draft tests, 7 new push tests) |
+| Typecheck + build | `npm run build` | PASS — entry 88.82 kB, react-vendor 164.45 kB, supabase 214.35 kB, icons 13.88 kB |
+| Project verification | `npm run verify` | PASS — 28 assertions |
+
+Draft persistence, TTL expiry, per-user scoping, corrupt-snapshot handling and notification gating are covered by unit tests with injected storage/environment. **Not executed end to end:** the draft insert/update against a live Supabase project (no credentials here) and the OS notification popup (requires a real browser with granted permission). `supabase/migrations/0002_report_draft_submit_notify.sql` is written but not applied.
