@@ -8,6 +8,12 @@ Branch: `appjet` · All work isolated to this branch. `main` was not touched.
 
 ### Added
 
+- Pre-save shift guard: when a coach has no open shift, the attendance view now
+  asks for confirmation before saving (`startShiftPrompt`, translated into
+  Arabic, French and English). This closes the remaining F2 gap where a coach
+  without a shift would silently save under the shared `unspecified` session
+  key and could merge with another same-day session. `saveAttendance` accepts
+  the already-resolved session key so `coach_shifts` is queried once, not twice.
 - `src/lib/attendance-core.ts` — pure attendance rules with no Supabase or
   `import.meta.env` dependency: `NO_SESSION`, `isMissingSessionColumn`,
   `friendlyAttendanceError`, `buildAttendanceRows`, plus the `AttendanceInput`,
